@@ -7,55 +7,38 @@ import {
   Image, 
   Alert, 
   ScrollView,
-  ActivityIndicator // Adicionado para um indicador de carregamento mais visual
+  ActivityIndicator 
 } from 'react-native';
 import { router } from 'expo-router';
 
-// Assumindo que a API está em src/api/InsutecPayAPI
-import { login } from '../../../src/api/InsutecPayAPI'; 
 // Assumindo que o Contexto está em components/AuthContext
 import { useAuth } from '../../../components/AuthContext'; 
 
 // Assumindo que styles está em styles/Login.styles
-// NOTA: Certifica-te que os estilos e COLORS estão definidos neste ficheiro!
 import { styles, COLORS } from '../../../styles/Login.styles';
 
-
 export default function LoginScreen() {
-  
-  // Obter a função de autenticação do contexto
   const { signIn } = useAuth(); 
   const [numeroEstudante, setNumeroEstudante] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    // 1. Validação simples no frontend
     if (!numeroEstudante || !senha) {
       Alert.alert('Erro', 'Preencha o número de estudante e a senha.');
       return;
     }
-    
-    // DEBUG: A senha de teste é 123456
-    // console.log(`Tentativa de Login: ${numeroEstudante} / ${senha}`);
+
+    console.log(`Tentativa de Login: ${numeroEstudante} / ${senha}`); // Log para depuração
 
     try {
       setLoading(true);
-
-      // 2. CHAMA A API REAL (Envia a senha em texto puro, o servidor trata do bcrypt.compare)
-      const aluno = await login(numeroEstudante, senha);
-
-      // 3. USA O CONTEXTO PARA INICIAR A SESSÃO
-      // O 'aluno.nr_estudante' é usado como token temporário.
-      await signIn(aluno, aluno.nr_estudante);
-
-      Alert.alert('Sucesso', `Bem-vindo(a), ${aluno.nome}!`);
-      
-      // Redireciona para o ecrã Home.
+      // Correção: Chama diretamente signIn com nr_estudante e password
+      await signIn(numeroEstudante, senha);
+      Alert.alert('Sucesso', 'Bem-vindo(a)!');
       router.push('/telas/home'); 
-
     } catch (error: any) {
-      // O backend agora deve retornar uma mensagem clara de 401.
+      console.error('Erro no handleLogin:', error.message); // Log para depuração
       const errorMessage = error.message || 'Falha na comunicação com o servidor. Verifique o URL.';
       Alert.alert('Erro no Login', errorMessage);
     } finally {
@@ -66,7 +49,6 @@ export default function LoginScreen() {
   return (
     <ScrollView 
       contentContainerStyle={styles.container}
-      // Garante que o teclado não cobre a área de input no Android/iOS
       keyboardShouldPersistTaps="handled" 
     >
       <Image
@@ -85,7 +67,6 @@ export default function LoginScreen() {
         keyboardType="numeric"
         value={numeroEstudante}
         onChangeText={setNumeroEstudante}
-        // Desativa a edição durante o carregamento
         editable={!loading} 
       />
 
@@ -97,7 +78,6 @@ export default function LoginScreen() {
         value={senha}
         onChangeText={setSenha}
         editable={!loading}
-        // Submete ao pressionar 'Enter' no teclado
         onSubmitEditing={handleLogin} 
       />
 

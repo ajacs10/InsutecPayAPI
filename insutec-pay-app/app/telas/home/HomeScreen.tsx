@@ -1,441 +1,331 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    ActivityIndicator,
-    TouchableOpacity,
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+    View, 
+    Text, 
+    ScrollView, 
+    TouchableOpacity, 
+    Animated, 
+    Easing, 
+    SafeAreaView, 
+    Dimensions, 
+    StatusBar, 
     Image,
-    FlatList,
-    Animated,
-    StatusBar,
 } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-// 🛑 CORREÇÃO: Usamos 'signOut' do AuthContext e renomeamos para 'logout'
-import { useAuth } from '../../../components/AuthContext'; 
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+
+// Caminho para a imagem do logo 
+const LOGO_IMAGE = require('../../../assets/images/logo.png');
+
+// Ajuste estes caminhos conforme a sua estrutura de pastas reais
+import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-// Certifique-se de que este caminho está correto:
-import { styles } from '../../../styles/_HomeStyles.ts'; 
-import { formatCurrency } from '../../../src/utils/formatters';
-import { getTransacoesRecentes, PagamentoTransacao } from '../../../src/api/InsutecPayAPI';
+import { styles, COLORS } from '../../../styles/_HomeStyles'; 
+import { Servico, SERVICOS_MENU_LATERAL, SERVICOS_DESTAQUE } from '../../../src/constants/services';
+import { formatCurrency } from '../../../src/utils/formatters'; 
 
-// Logo da universidade
-const UNIVERSITY_LOGO = require('../../../assets/images/logo.png');
 
-// Interface para serviços
-interface Servico {
-    id: string;
-    nome: string;
-    valor?: number;
-    pendente: boolean;
-    icon: string;
-    anos?: { [key: number]: number };
-    isSpecial?: boolean;
-}
+// =========================================================================
+// MOCKS / DADOS E ROTAS (ATUALIZADOS)
+// =========================================================================
+const getDashboardData = () => ({
+    // Mantemos os valores para o saldo, mas ignoramos a dívida no UI.
+    saldoDisponivel: 150000.00,
+    dividasPendentes: 0, // Definido como 0 para cumprir a regra de "sem dívida"
+    totalDivida: 0.00,
+});
 
-// Lista de serviços disponíveis
-const SERVICOS: Servico[] = [
-    { id: '1', nome: 'Propina', pendente: false, icon: 'money', anos: { 1: 45550, 2: 45550, 3: 45550, 4: 45550 } },
-    { id: '2', nome: 'Reconfirmação de Matrícula', valor: 15000, pendente: false, icon: 'check-circle' },
-    { id: '3', nome: 'Folha de Prova', valor: 200, pendente: false, icon: 'file-text' },
-    { id: '4', nome: 'Declaração com Notas', valor: 15000, pendente: false, icon: 'file-text-o' },
-    { id: '5', nome: 'Declaração sem Notas', valor: 10000, pendente: false, icon: 'file' },
-    { id: '6', nome: 'Perfil', pendente: false, icon: 'user' },
-    { id: '7', nome: 'Logout', pendente: false, icon: 'sign-out' },
+const SERVICO_ROTAS_DIRETAS: { [key: string]: string } = {
+    'Propina': '/telas/servicos/Propina',
+    'Taxa de Inscrição': '/telas/servicos/TaxaInscricao',
+    'Declaração com Notas': '/telas/servicos/DeclaracaoNota',
+    'Declaração sem Notas': '/telas/servicos/DeclaracaoSemNota',
+    'Folha de Prova': '/telas/servicos/FolhadeProva',
+    'Reconfirmação de Matrícula': '/telas/servicos/Reconfirmacaomatricula',
+    'Pagar Agora': '/telas/ServicoPagamento/ServicoPagamentoScreen', 
+    'Perfil': '/telas/perfil/PerfilScreen',
+    'Histórico': '/telas/historico/HistoricoScreen',
+    'Leitor QR': '/telas/qrcode/QRCodeReader',
+    'Ajuda': '/telas/ajuda/AjudaScreen',
+    'Carteira': '/telas/financeiro/CarteiraScreen', 
+};
+const FALLBACK_PAGAMENTO_PATH = '/telas/ServicoPagamento/ServicoPagamentoScreen';
+
+
+const ATALHOS_RAPIDOS = [
+    { id: '4', name: 'Carteira', icon: 'credit-card', route: SERVICO_ROTAS_DIRETAS['Carteira'] || '' }, 
+    { id: '1', name: 'Histórico', icon: 'history', route: SERVICO_ROTAS_DIRETAS['Histórico'] || '' },
+    { id: '2', name: 'Leitor QR', icon: 'qrcode', route: SERVICO_ROTAS_DIRETAS['Leitor QR'] || '' },
+    { id: '3', name: 'Ajuda', icon: 'support', route: SERVICO_ROTAS_DIRETAS['Ajuda'] || '' },
 ];
 
-// Componente Auxiliar: Cartão de Serviço
-const ServicoCard: React.FC<{ servico: Servico; onPress: () => void }> = ({ servico, onPress }) => {
-    const { isDarkMode } = useTheme();
 
-    return (
-        // ✅ CORREÇÃO: Usamos o styles.card para um melhor layout no menu lateral.
-        <TouchableOpacity
-            style={[styles.card(isDarkMode), { marginBottom: 8, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12 }]} 
-            onPress={onPress}
-            activeOpacity={0.8}
-            accessibilityLabel={`Ação ${servico.nome}`}
-        >
-            <FontAwesome name={servico.icon} size={20} color={styles.cardTitle(isDarkMode).color} style={{ marginRight: 10 }} />
-            <Text style={styles.cardTitle(isDarkMode)}>{servico.nome}</Text>
-        </TouchableOpacity>
-    );
-};
+// =========================================================================
+// COMPONENTES AUXILIARES 
+// =========================================================================
 
-// Componente Auxiliar: Cartão de Status
-interface StatusCardProps {
-    total: number;
-    loading: boolean;
-    nextDueDate?: string;
-}
-
-const StatusCard: React.FC<StatusCardProps> = ({ total, loading, nextDueDate }) => {
-    const { isDarkMode } = useTheme();
-
-    return (
-        <View style={[styles.card(isDarkMode), styles.cardSuccess(isDarkMode), { padding: 16, marginBottom: 20 }]}>
-            <View style={styles.cardHeader(isDarkMode)}>
-                <Text style={styles.cardTitle(isDarkMode)}>Status Financeiro</Text>
-                <FontAwesome name="check-circle" size={20} color={styles.cardSuccess(isDarkMode).borderLeftColor} />
-            </View>
-            {loading ? (
-                <ActivityIndicator size="small" color={styles.cardTitle(isDarkMode).color} style={{ marginVertical: 10 }} />
-            ) : (
-                <>
-                    <Text style={[styles.totalPendencyValue(isDarkMode), { fontSize: 28, fontWeight: 'bold', marginVertical: 8 }]}>{formatCurrency(total)}</Text>
-                    
-                    {total === 0 ? (
-                        <Text style={[styles.cardSubtitle(isDarkMode), { fontSize: 12, marginTop: 6 }]}>
-                            Sem dívidas pendentes. Explore os serviços!
-                        </Text>
-                    ) : (
-                        <Text style={[styles.cardDetailSmall(isDarkMode), { fontSize: 12, marginTop: 6 }]}>
-                            Próximo vencimento: **{nextDueDate}**
-                        </Text>
-                    )}
-                    
-                    <TouchableOpacity
-                        style={[styles.payButton(isDarkMode), { paddingVertical: 10, marginTop: 15, opacity: total > 0 ? 1 : 0.5 }]}
-                        onPress={() => total > 0 && router.push('/telas/dividas/DividasScreen')}
-                        activeOpacity={0.8}
-                        disabled={total === 0}
-                        accessibilityLabel={total > 0 ? 'Pagar agora' : 'Sem pendências'}
-                    >
-                        <Text style={[styles.payButtonText(isDarkMode), { fontSize: 16 }]}>
-                            {total > 0 ? 'Pagar Agora' : 'Ver Serviços'}
-                        </Text>
-                    </TouchableOpacity>
-                </>
-            )}
+// Cartão de Destaque (Layout de 3 Colunas)
+const ServiceCard: React.FC<{ servico: Servico; onPress: (servico: Servico) => void; isDarkMode: boolean }> = ({ servico, onPress, isDarkMode }) => (
+    <TouchableOpacity 
+        style={styles.card(isDarkMode)} 
+        onPress={() => onPress(servico)}
+        activeOpacity={0.7}
+    >
+        <View style={styles.cardIconContainer(isDarkMode)}>
+            <FontAwesome name={servico.icon} size={28} color={COLORS.primary} /> 
         </View>
-    );
-};
+        <Text style={styles.cardTitle(isDarkMode)} numberOfLines={1}>{servico.nome}</Text>
+    </TouchableOpacity>
+);
 
-// Componente Auxiliar: Item de Transação Recente
-interface RecentTransactionItemProps {
-    item: PagamentoTransacao;
-}
+// Cartão de Acesso Rápido (Horizontal Scroll)
+const QuickAccessCard: React.FC<{ icon: string; name: string; onPress: () => void; isDarkMode: boolean }> = ({ icon, name, onPress, isDarkMode }) => (
+    <TouchableOpacity
+        style={styles.quickAccessCard(isDarkMode)}
+        onPress={onPress}
+        activeOpacity={0.7}
+    >
+        <FontAwesome name={icon} size={22} color={COLORS.primary} />
+        <Text style={styles.quickAccessText(isDarkMode)} numberOfLines={1}>{name}</Text>
+    </TouchableOpacity>
+);
 
-const RecentTransactionItem: React.FC<RecentTransactionItemProps> = ({ item }) => {
-    const { isDarkMode } = useTheme();
-    let statusColor = styles.listItemValue(isDarkMode).color;
-    let statusIcon = 'clock-o';
 
-    if (item.status === 'PAGO') {
-        statusColor = styles.cardSuccess(isDarkMode).borderLeftColor;
-        statusIcon = 'check-circle';
-    } else if (item.status === 'CANCELADO' || item.status === 'ERRO') {
-        statusColor = styles.payButton(isDarkMode).backgroundColor;
-        statusIcon = 'times-circle';
-    }
+// Sidebar
+const Sidebar: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    onServicoPress: (servico: Servico) => void; 
+    logout: () => void; 
+    isDarkMode: boolean;
+}> = ({ isOpen, onClose, onServicoPress, logout, isDarkMode }) => {
+    
+    const { aluno } = useAuth();
+    
+    const windowWidth = Dimensions.get('window').width;
+    const SIDEBAR_WIDTH = windowWidth * 0.75; 
+    const rightOffset = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current; 
 
-    return (
-        <TouchableOpacity
-            style={[styles.listItem(isDarkMode), { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: styles.cardSubtitle(isDarkMode).color }]}
-            onPress={() => router.push(`/telas/transacao/${item.id_transacao_unica}`)}
-            activeOpacity={0.7}
-            accessibilityLabel={`Detalhes da transação ${item.descricao}`}
+    useEffect(() => {
+        Animated.timing(rightOffset, {
+            toValue: isOpen ? 0 : -SIDEBAR_WIDTH, 
+            duration: 300,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: false,
+        }).start();
+    }, [isOpen, rightOffset, SIDEBAR_WIDTH]);
+
+    const handleLogout = () => {
+        onClose();
+        logout();
+        router.replace('/telas/login/LoginScreen');
+    };
+
+    const renderItem = (servico: Servico) => (
+        <TouchableOpacity 
+            key={servico.id}
+            style={styles.sidebarItem(isDarkMode)} 
+            onPress={() => servico.nome === 'Logout' ? handleLogout() : onServicoPress(servico)}
+            activeOpacity={0.6}
         >
-            <View style={[styles.listItemIconContainer(isDarkMode), { backgroundColor: statusColor, width: 32, height: 32 }]}>
-                <FontAwesome name={statusIcon} size={16} color={styles.card(isDarkMode).backgroundColor} />
-            </View>
-            <View style={styles.listItemTextContainer(isDarkMode)}>
-                <Text style={[styles.listItemTitle(isDarkMode), { fontSize: 14 }]} numberOfLines={1}>
-                    {item.descricao}
-                </Text>
-                <Text style={[styles.listItemSubtitle(isDarkMode), { fontSize: 11, marginTop: 4 }]}>
-                    {new Date(item.data_transacao || Date.now()).toLocaleDateString('pt-PT')}
-                </Text>
-            </View>
-            <View style={styles.listItemValueContainer(isDarkMode)}>
-                <Text style={[styles.listItemValue(isDarkMode), { fontSize: 14, color: statusColor }]}>
-                    {formatCurrency(item.valor)}
-                </Text>
-            </View>
+            <FontAwesome name={servico.icon} size={20} color={servico.nome === 'Logout' ? COLORS.danger : styles.sidebarText(isDarkMode).color} style={{ width: 30 }} />
+            <Text style={[styles.sidebarText(isDarkMode), servico.nome === 'Logout' && { color: COLORS.danger }]}>
+                {servico.nome}
+            </Text>
         </TouchableOpacity>
     );
+
+    return (
+        <>
+            {isOpen && (
+                <TouchableOpacity style={styles.sidebarOverlay} onPress={onClose} activeOpacity={1} />
+            )}
+            
+            <Animated.View style={[
+                styles.sidebar(isDarkMode, SIDEBAR_WIDTH), 
+                { right: rightOffset }
+            ]}>
+                
+                <View style={styles.sidebarHeader(isDarkMode)}>
+                    <FontAwesome name="user-circle" size={40} color={COLORS.primary} />
+                    <Text style={styles.sidebarHeaderText(isDarkMode)} numberOfLines={1}>{aluno?.nome || 'Utilizador'}</Text>
+                    <Text style={styles.sidebarHeaderSubtitle(isDarkMode)}>{aluno?.nr_estudante || 'Sem ID'}</Text>
+                </View>
+
+                <ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
+                    {SERVICOS_MENU_LATERAL
+                        .filter(s => s.nome !== 'Logout') 
+                        .map(renderItem)}
+                    
+                    <View style={styles.sidebarFooter}>
+                         {SERVICOS_MENU_LATERAL
+                            .filter(s => s.nome === 'Logout')
+                            .map(renderItem)}
+                    </View>
+                </ScrollView>
+                
+            </Animated.View>
+        </>
+    );
 };
 
-// Ecrã Principal (Dashboard)
+
+// =========================================================================
+// TELA PRINCIPAL (HomeScreen)
+// =========================================================================
 export default function HomeScreen() {
-    // 🛑 CORREÇÃO FINAL: Renomeamos signOut para logout aqui para evitar o erro anterior.
-    const { aluno, signOut: logout } = useAuth(); 
-    const { isDarkMode } = useTheme();
-    const [dívidaTotal, setDívidaTotal] = useState(0);
-    const [transacoesRecentes, setTransacoesRecentes] = useState<PagamentoTransacao[]>([]);
-    const [loadingDívida, setLoadingDívida] = useState(false);
-    const [loadingTransacoes, setLoadingTransacoes] = useState(true);
-    const [nextDueDate, setNextDueDate] = useState<string | undefined>(undefined);
+    const { aluno, logout } = useAuth();
+    const { isDarkMode, toggleTheme } = useTheme();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const sidebarWidth = useRef(new Animated.Value(0)).current;
+    const dashboardData = getDashboardData(); 
 
-    const alunoId = aluno?.id;
-
-    // Estado para data e hora
-    const [currentTime, setCurrentTime] = useState<string>('02:34 PM WAT');
-
-    // Atualiza a data e hora em tempo real
-    useEffect(() => {
-        const updateTime = () => {
-            const now = new Date();
-            const options: Intl.DateTimeFormatOptions = {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-                timeZone: 'Africa/Luanda',
-            };
-            // Simplificamos a formatação da hora para apenas hora e minuto
-            setCurrentTime(now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })); 
-        };
-        updateTime();
-        const interval = setInterval(updateTime, 60000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Função para carregar Dívidas e Transações
-    const loadData = useCallback(async () => {
-        if (!alunoId) return;
-
-        // 🛑 CORREÇÃO: Simulação da Dívida e Carregamento (substituir por API real)
-        setLoadingDívida(true);
-        // Simular o carregamento
-        await new Promise(resolve => setTimeout(resolve, 800)); 
-
-        try {
-            // SIMULAÇÃO DE DADOS (Remover isto quando ligar à API de dívidas)
-            setDívidaTotal(45550 * 2); 
-            setNextDueDate('31 de Julho de 2025');
-
-            // Carregar Transações Recentes (API Real - Ajustar para usar o URL ngrok/API pública)
-            setLoadingTransacoes(true);
-            const recentes = await getTransacoesRecentes(alunoId);
-            setTransacoesRecentes(recentes.slice(0, 3));
-        } catch (e) {
-            console.error('Erro ao carregar dados:', e);
-            setDívidaTotal(0);
-            setTransacoesRecentes([]);
-        } finally {
-            setLoadingDívida(false);
-            setLoadingTransacoes(false);
-        }
-    }, [alunoId]);
-
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [loadData])
-    );
-
-    const firstName = aluno?.nome?.split(' ')[0] || 'Usuário';
-
-    // Função para navegar ou executar ação ao selecionar um serviço
+    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+    
     const handleServicoPress = (servico: Servico) => {
-        setIsSidebarOpen(false);
-        // Animação para fechar a sidebar
-        Animated.timing(sidebarWidth, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: false,
-        }).start(() => {
-            // Lógica executada APÓS o fecho da sidebar
-            if (servico.nome === 'Logout') {
-                logout(); // Usa o 'logout' renomeado
-                router.replace('/telas/login/LoginScreen');
-            } else if (servico.nome === 'Perfil') {
-                router.push('/telas/perfil/PerfilScreen');
-            } else {
-                router.push({
-                    pathname: '/telas/ServicoPagamento/ServicoPagamentoScreen',
-                    params: { servico: JSON.stringify([servico]) }, // ✅ Envia como array
-                });
-            }
-        });
+        setIsSidebarOpen(false); 
+
+        const targetPath = SERVICO_ROTAS_DIRETAS[servico.nome];
+        
+        if (servico.nome === 'Logout') {
+            logout();
+            router.replace('/telas/login/LoginScreen');
+            return;
+        }
+
+        if (targetPath) {
+            router.push({
+                pathname: targetPath,
+                params: { 
+                    servico: JSON.stringify(servico),
+                },
+            });
+        } else {
+            router.push(FALLBACK_PAGAMENTO_PATH); 
+        }
+    };
+    
+    const handleQuickAccessPress = (route: string) => {
+         setIsSidebarOpen(false); 
+         if (route) {
+            router.push(route);
+         }
     };
 
-    // Animação do menu lateral
-    const toggleSidebar = () => {
-        if (isSidebarOpen) {
-            setIsSidebarOpen(false);
-            Animated.timing(sidebarWidth, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: false,
-            }).start();
-        } else {
-            setIsSidebarOpen(true);
-            Animated.timing(sidebarWidth, {
-                toValue: 300,
-                duration: 200,
-                useNativeDriver: false,
-            }).start();
-        }
+    const handlePagarAgoraPress = () => {
+        // Redireciona para a tela de pagamento principal (Propina/Taxas)
+        router.push(FALLBACK_PAGAMENTO_PATH);
     };
 
     return (
-        <View style={styles.safeArea(isDarkMode)}>
-            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={styles.safeArea(isDarkMode).backgroundColor} />
+        <SafeAreaView style={styles.safeArea(isDarkMode)}>
+            <StatusBar 
+                barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+                backgroundColor={isDarkMode ? COLORS.darkBackground : COLORS.lightBackground} 
+            />
 
-            {/* Header */}
-            <View style={[styles.header(isDarkMode), { paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 4 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Image
-                        source={UNIVERSITY_LOGO}
-                        style={{ width: 40, height: 40, marginRight: 12 }}
-                        resizeMode="contain"
-                        accessibilityLabel="Logo da Universidade Insutec"
-                    />
-                    <View>
-                        <Text style={[styles.cardTitle(isDarkMode), { fontSize: 18, fontWeight: '600' }]}>InsutecPay</Text>
-                        <Text style={[styles.cardSubtitle(isDarkMode), { fontSize: 13, marginTop: 2 }]}>
-                            Bem-vindo(a), <Text style={{ fontWeight: '700' }}>{firstName}</Text>
-                        </Text>
+            {/* HEADER */}
+            <View style={styles.header(isDarkMode)}>
+                <View style={styles.logoAndGreetingContainer}> 
+                    <View style={styles.logoContainer}>
+                        <Image 
+                            source={LOGO_IMAGE} 
+                            style={styles.logoImage} 
+                            resizeMode="contain" 
+                        />
                     </View>
+                    <Text style={styles.greetingText(isDarkMode)} numberOfLines={1}>
+                        Olá, {aluno?.nome?.split(' ')[0] || 'Estudante'}!
+                    </Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[styles.cardDetailSmall(isDarkMode), { fontSize: 12, marginRight: 12 }]}>{currentTime}</Text>
-                    <TouchableOpacity onPress={toggleSidebar} style={{ padding: 8 }}>
-                        <FontAwesome name="bars" size={24} color={styles.cardTitle(isDarkMode).color} />
+                
+                <View style={styles.headerRightButtons}>
+                    <TouchableOpacity onPress={toggleTheme} style={styles.headerButton}>
+                        <Ionicons 
+                            name={isDarkMode ? "sunny" : "moon"} 
+                            size={26} 
+                            color={styles.sectionTitle(isDarkMode).color} 
+                        />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={toggleSidebar} style={styles.headerButton}>
+                        <Ionicons 
+                            name="menu" 
+                            size={30} 
+                            color={styles.sectionTitle(isDarkMode).color} 
+                        />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Sidebar (Menu Lateral) */}
-            <Animated.View
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: sidebarWidth,
-                    backgroundColor: styles.safeArea(isDarkMode).backgroundColor,
-                    paddingTop: 60, // Ajuste para descer abaixo do header
-                    zIndex: 34,
-                    elevation: 30,
-                    shadowColor: '#000',
-                    shadowOffset: { width: -3, height: 2 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 4,
-                }}
+            {/* CONTEÚDO SCROLLABLE */}
+            <ScrollView 
+                contentContainerStyle={styles.contentContainer(isDarkMode)}
+                showsVerticalScrollIndicator={false}
             >
-                <FlatList
-                    data={SERVICOS}
-                    renderItem={({ item }) => (
-                        <ServicoCard servico={item} onPress={() => handleServicoPress(item)} />
-                    )}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 12 }}
-                />
-            </Animated.View>
-
-            {/* Overlay */}
-            {isSidebarOpen && (
-                <TouchableOpacity
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 5 }}
-                    onPress={toggleSidebar}
-                    activeOpacity={1}
-                />
-            )}
-
-            {/* Conteúdo Principal */}
-            <ScrollView contentContainerStyle={styles.contentContainer(isDarkMode)}>
-                {/* Status Financeiro */}
-                <StatusCard total={dívidaTotal} loading={loadingDívida} nextDueDate={nextDueDate} />
-
-                {/* Ações Rápidas */}
-                <View style={styles.sectionContainer(isDarkMode)}>
-                    <Text style={styles.sectionTitle(isDarkMode)}>Ações Rápidas</Text>
-                    <View style={styles.accessList(isDarkMode)}>
-                        {/* Cartão Pagar */}
-                        <TouchableOpacity
-                            style={[styles.card(isDarkMode), { marginBottom: 8, paddingVertical: 8 }]}
-                            onPress={() => router.push('/telas/dividas/DividasScreen')}
-                            activeOpacity={0.8}
-                            accessibilityLabel="Pagar"
-                        >
-                            <View style={[styles.header(isDarkMode), { width: 40, height: 40 }]}>
-                                <FontAwesome name="money" size={20} color={styles.cardTitle(isDarkMode).color} />
-                            </View>
-                            <Text style={styles.cardTitle(isDarkMode)}>Pagar</Text>
-                        </TouchableOpacity>
-                        
-                        {/* Cartão Histórico */}
-                        <TouchableOpacity
-                            style={[styles.card(isDarkMode), { marginBottom: 8, paddingVertical: 8 }]}
-                            onPress={() => router.push('/telas/historico/HistoricoScreen')}
-                            activeOpacity={0.8}
-                            accessibilityLabel="Ver histórico"
-                        >
-                            <View style={[styles.header(isDarkMode), { width: 40, height: 40 }]}>
-                                <FontAwesome name="history" size={20} color={styles.cardTitle(isDarkMode).color} />
-                            </View>
-                            <Text style={styles.cardTitle(isDarkMode)}>Histórico</Text>
-                        </TouchableOpacity>
-
-                        {/* Cartão Notificações */}
-                        <TouchableOpacity
-                            style={[styles.card(isDarkMode), { paddingVertical: 8 }]}
-                            onPress={() => router.push('/telas/notificacoes/NotificacoesScreen')}
-                            activeOpacity={0.8}
-                            accessibilityLabel="Ver notificações"
-                        >
-                            <View style={[styles.header(isDarkMode), { width: 40, height: 40 }]}>
-                                <FontAwesome name="bell" size={20} color={styles.cardTitle(isDarkMode).color} />
-                            </View>
-                            <Text style={styles.cardTitle(isDarkMode)}>Notificações</Text>
-                        </TouchableOpacity>
+                
+                {/* Saldo Disponível (Cartão Principal em Destaque) */}
+                <View style={styles.saldoContainer(isDarkMode)}>
+                    <View style={styles.balanceHeader}>
+                        <Text style={styles.saldoTitle(isDarkMode)}>Saldo Disponível</Text>
+                        <Ionicons name="eye-off-outline" size={20} color={isDarkMode ? COLORS.subText : COLORS.gray} />
                     </View>
-                </View>
+                    
+                    <Text style={styles.saldoValue(isDarkMode)}>{formatCurrency(dashboardData.saldoDisponivel)}</Text>
+                    
+                    {/* ❌ Secção de Dívida Removida */}
 
-                {/* Transações Recentes */}
-                <View style={styles.sectionContainer(isDarkMode)}>
-                    <Text style={styles.sectionTitle(isDarkMode)}>Transações Recentes</Text>
-                    {loadingTransacoes ? (
-                        <ActivityIndicator size="large" color={styles.cardTitle(isDarkMode).color} style={{ marginVertical: 12 }} />
-                    ) : transacoesRecentes.length > 0 ? (
-                        transacoesRecentes.map((item) => (
-                            <RecentTransactionItem key={item.id_transacao_unica} item={item} />
-                        ))
-                    ) : (
-                        <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-                            <FontAwesome name="file-text-o" size={32} color={styles.cardSubtitle(isDarkMode).color} style={{ marginBottom: 10 }} />
-                            <Text style={styles.cardSubtitle(isDarkMode)}>Nenhuma transação recente encontrada.</Text>
-                        </View>
-                    )}
-                    <TouchableOpacity
-                        style={styles.viewAllButton(isDarkMode)}
-                        onPress={() => router.push('/telas/historico/HistoricoScreen')}
-                        accessibilityLabel="Ver todas as transações"
-                    >
-                        <Text style={styles.viewAllText(isDarkMode)}>Ver Todas as Transações</Text>
+
+                    <TouchableOpacity style={styles.payButton(isDarkMode)} onPress={handlePagarAgoraPress}>
+                        <Text style={styles.payButtonText(isDarkMode)}>Pagar Propina e Taxas</Text>
                     </TouchableOpacity>
                 </View>
+                
+                {/* SERVIÇOS EM DESTAQUE (3 Colunas Centralizadas e Responsivas) */}
+                <View style={styles.sectionContainer(isDarkMode)}>
+                    <Text style={styles.sectionTitle(isDarkMode)}>Acesso Rápido a Serviços</Text>
+                    <View style={styles.highlightServicesGrid}> 
+                        {SERVICOS_DESTAQUE.slice(0, 3).map((servico) => ( 
+                            <ServiceCard 
+                                key={servico.id}
+                                servico={servico}
+                                onPress={handleServicoPress}
+                                isDarkMode={isDarkMode}
+                            />
+                        ))}
+                    </View>
+                </View>
+                
+                {/* OUTROS ATALHOS (Scroll Horizontal com Carteira) */}
+                <View style={styles.sectionContainer(isDarkMode)}>
+                    <Text style={styles.sectionTitle(isDarkMode)}>Outros Atalhos</Text>
+                    
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.quickAccessScrollContainer} 
+                    >
+                        {ATALHOS_RAPIDOS.map((atalho) => (
+                            <QuickAccessCard
+                                key={atalho.id}
+                                icon={atalho.icon}
+                                name={atalho.name}
+                                onPress={() => handleQuickAccessPress(atalho.route)}
+                                isDarkMode={isDarkMode}
+                            />
+                        ))}
+                    </ScrollView>
+                </View>
 
-                {/* Botão Sair (Logout) no rodapé */}
-                <TouchableOpacity
-                    style={styles.logoutButton(isDarkMode)}
-                    onPress={() => {
-                        logout();
-                        router.replace('/telas/login/LoginScreen');
-                    }}
-                    activeOpacity={0.8}
-                    accessibilityLabel="Sair do aplicativo"
-                >
-                    <Text style={styles.logoutText(isDarkMode)}>Sair</Text>
-                </TouchableOpacity>
             </ScrollView>
 
-            {/* FAB (Floating Action Button) */}
-            {dívidaTotal > 0 && (
-                <TouchableOpacity
-                    style={styles.fab(isDarkMode)}
-                    onPress={() => router.push('/telas/dividas/DividasScreen')}
-                    activeOpacity={0.8}
-                    accessibilityLabel="Pagar"
-                >
-                    <FontAwesome name="money" size={24} style={styles.fabIcon(isDarkMode)} />
-                </TouchableOpacity>
-            )}
-        </View>
+            {/* BARRA LATERAL */}
+            <Sidebar 
+                isOpen={isSidebarOpen} 
+                onClose={toggleSidebar} 
+                onServicoPress={handleServicoPress} 
+                logout={logout} 
+                isDarkMode={isDarkMode}
+            />
+        </SafeAreaView>
     );
 }

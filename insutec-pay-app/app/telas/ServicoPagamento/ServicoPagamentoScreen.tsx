@@ -1,381 +1,164 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Pressable, Switch, Alert, ScrollView } from 'react-native';
+// /telas/servicos/Propina.tsx
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { router, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { router } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
-import { useTheme } from '../ThemeContext/ThemeContext'; 
-import { formatCurrency } from '../../../src/utils/formatters';
+import { useTheme } from '../ThemeContext/ThemeContext';
 import { styles, COLORS } from '../../../styles/_ServicoStyles.style.ts';
-import { Servico, Aluno } from '../../../src/types/index';
+import { formatCurrency } from '../../../src/utils/formatters';
 
-// Mock function to check payment status
-const checkPaymentStatus = async (studentId: string): Promise<boolean> => {
-  console.log('Checking payment status for student:', studentId);
-  return true; // Assume some months paid for demo
+// Mocks
+const checkPaymentStatus = async (studentId: string): Promise<boolean> => Promise.resolve(true); 
+const fetchOwedMonths = async (studentId: string, isPaid: boolean): Promise<string[]> => {
+    const ACADEMIC_MONTHS = ['Novembro', 'Dezembro', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho'];
+    return isPaid ? ACADEMIC_MONTHS.slice(4) : ACADEMIC_MONTHS; // Exemplo: Devolve Março em diante
 };
 
-// Mock function to fetch owed months
-const fetchOwedMonths = async (studentId: string, paymentStatus: boolean): Promise<string[]> => {
-  const ACADEMIC_MONTHS = [
-    'Novembro', 'Dezembro', 'Janeiro', 'Fevereiro',
-    'Março', 'Abril', 'Maio', 'Junho', 'Julho'
-  ]; // 9 months starting from November
-  // Se for pago, começa a contar os meses em dívida a partir de Março (apenas para o mock)
-  const months = paymentStatus ? ACADEMIC_MONTHS.slice(4) : ACADEMIC_MONTHS; 
-  console.log('Owed months for student', studentId, ':', months);
-  return months;
-};
+const MONTHLY_FEE = 45550; // Exemplo de valor
 
-export default function ServicoPagamentoScreen() {
-  const { aluno } = useAuth();
-  // 💥 CORREÇÃO: Usar o tema global. 
-  const { isDarkMode, toggleTheme } = useTheme(); 
-  
-  const { servico } = useLocalSearchParams();
-  
-  let parsedServicos: Servico[] = [];
-  if (servico) {
-    try {
-      const parsed = JSON.parse(servico as string);
-      parsedServicos = Array.isArray(parsed) ? parsed : [parsed];
-      parsedServicos = parsedServicos.filter(s => s.nome !== 'Reconfirmação de Matrícula');
-      console.log('Parsed Servicos (excluding Matrícula):', parsedServicos);
-    } catch (e) {
-      console.error('Error parsing servico:', e);
-    }
-  }
-  
-  const [numeroEstudante, setNumeroEstudante] = useState(aluno?.nr_estudante || '');
-  const [selections, setSelections] = useState<Record<string, {
-    selectedAno: number | null;
-    selectedMonths: string[];
-    quantity: number;
-  }>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<boolean>(false);
-  const [owedMonths, setOwedMonths] = useState<string[]>([]);
-  // ⚠️ REMOVIDO: const [isDarkMode, setIsDarkMode] = useState(true); 
+export default function PropinaScreen() {
+    const { aluno } = useAuth();
+    const { isDarkMode } = useTheme();
+    
+    const [numeroEstudante, setNumeroEstudante] = useState(aluno?.nr_estudante || '');
+    const [selectedAno, setSelectedAno] = useState<number | null>(null);
+    const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+    const [owedMonths, setOwedMonths] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  // Initialize selections for all services
-  useEffect(() => {
-    const initialSelections: typeof selections = {};
-    parsedServicos.forEach((s) => {
-      if (s.nome && !initialSelections[s.nome]) {
-        initialSelections[s.nome] = {
-          selectedAno: null,
-          selectedMonths: [],
-          quantity: 1,
-        };
-      }
-    });
-    setSelections(initialSelections);
-    console.log('Initial Selections:', initialSelections);
-  }, [servico]);
+    const targetStudentId = useMemo(() => numeroEstudante || aluno?.nr_estudante, [numeroEstudante, aluno]);
 
-  // Fetch global data
-  useEffect(() => {
-    const fetchData = async () => {
-      if (numeroEstudante && aluno) {
-        const isPaid = await checkPaymentStatus(numeroEstudante);
-        setPaymentStatus(isPaid);
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!targetStudentId) return;
+            setLoading(true);
+            try {
+                const isPaid = await checkPaymentStatus(targetStudentId);
+                const unpaidMonths = await fetchOwedMonths(targetStudentId, isPaid);
+                setOwedMonths(unpaidMonths);
+            } catch (e) {
+                setError('Erro ao carregar dados de propina.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [targetStudentId]);
 
-        if (parsedServicos.some((s) => s.nome === 'Propina')) {
-          const unpaidMonths = await fetchOwedMonths(numeroEstudante, isPaid);
-          setOwedMonths(unpaidMonths);
-        }
-      }
-    };
-    fetchData();
-  }, [numeroEstudante, aluno, parsedServicos]);
+    const toggleMonth = (month: string) => {
+        setSelectedMonths((prev) => 
+            prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month]
+        );
+        setError(null);
+    };
 
-  // Update selection field
-  const setSelectionField = (nome: string, field: string, value: any) => {
-    setSelections((prev) => ({
-      ...prev,
-      [nome]: { ...prev[nome], [field]: value },
-    }));
-  };
+    const handleSelectAllMonths = () => {
+        setSelectedMonths(owedMonths);
+        setError(null);
+    };
 
-  // Handle month selection
-  const toggleMonth = (nome: string, month: string) => {
-    setSelections((prev) => {
-      const currentMonths = prev[nome]?.selectedMonths || [];
-      const newMonths = currentMonths.includes(month)
-        ? currentMonths.filter((m) => m !== month)
-        : [...currentMonths, month];
-      console.log('Toggling month:', month, 'for', nome, 'New months:', newMonths);
-      return {
-        ...prev,
-        [nome]: { ...prev[nome], selectedMonths: newMonths },
-      };
-    });
-  };
+    const getSubtotal = useMemo(() => MONTHLY_FEE * selectedMonths.length, [selectedMonths]);
 
-  // Handle quantity adjustment
-  const adjustQuantity = (nome: string, increment: boolean) => {
-    setSelections((prev) => ({
-      ...prev,
-      [nome]: {
-        ...prev[nome],
-        quantity: Math.max(1, prev[nome].quantity + (increment ? 1 : -1)),
-      },
-    }));
-  };
+    const handleAddToDividas = () => {
+        if (!targetStudentId) {
+            setError('Por favor, insira o número do estudante.');
+            return;
+        }
+        if (!selectedAno) {
+            setError('Selecione o ano académico.');
+            return;
+        }
+        if (selectedMonths.length === 0) {
+            setError('Selecione pelo menos um mês a pagar.');
+            return;
+        }
 
-  // Calculate subtotal for a service
-  const getSubtotal = (s: Servico, sel: any) => {
-    if (!sel) return 0;
-    if (s.nome === 'Propina' && sel.selectedAno) {
-      const monthlyFee = 45550; // Fixed to 45,550.00 Kwanza
-      return monthlyFee * sel.selectedMonths.length;
-    }
-    if (['Declaração com nota', 'Declaração sem nota'].includes(s.nome)) {
-      return (s.valor || 0) * sel.quantity;
-    }
-    return s.valor || 0;
-  };
+        const propinasParaDividas = selectedMonths.map(month => ({
+            id: `PROPINA-${targetStudentId}-${selectedAno}-${month}`,
+            descricao: `Propina - ${month}/${selectedAno}º Ano`,
+            valor_base: MONTHLY_FEE,
+            valor_total: MONTHLY_FEE, // Sem multa na tela de seleção
+            data_vencimento: '2025-12-31', // Data de vencimento a ser definida
+        }));
 
-  // Calculate grand total
-  const calculateTotal = () => {
-    let total = 0;
-    parsedServicos.forEach((s) => {
-      const sel = selections[s.nome];
-      total += getSubtotal(s, sel);
-    });
-    return total;
-  };
+        router.push({
+            pathname: '/telas/dividas/DividasScreen',
+            params: {
+                servicosAdicionais: JSON.stringify(propinasParaDividas),
+                alunoId: targetStudentId,
+            },
+        });
+    };
 
-  // 💥 MELHORIA: Usa o Alert para a Confirmação Final (Ideia 3)
-  const handlePagar = () => {
-    if (!numeroEstudante) {
-      setError('Por favor, insira o número do estudante.');
-      return;
-    }
-    // ... Lógica de validação ... (mantida do teu código)
-    let errorMsg = '';
-    parsedServicos.forEach((s) => {
-      const sel = selections[s.nome];
-      if (!sel) {
-        errorMsg += `Configuração não encontrada para ${s.nome}. `;
-        return;
-      }
-      if (s.nome === 'Propina') {
-        if (!sel.selectedAno) errorMsg += 'Selecione o ano para Propina. ';
-        if (!sel.selectedMonths.length) errorMsg += 'Selecione pelo menos um mês para Propina. ';
-      } else if (['Declaração com nota', 'Declaração sem nota'].includes(s.nome)) {
-        if (sel.quantity < 1) errorMsg += `Selecione uma quantidade válida para ${s.nome}. `;
-      }
-    });
-    if (errorMsg) {
-      setError(errorMsg);
-      return;
-    }
-    
-    const total = calculateTotal();
-    const servicosData = parsedServicos.map((s) => ({
-      ...s,
-      valor: getSubtotal(s, selections[s.nome]),
-      selectedMonths: s.nome === 'Propina' ? selections[s.nome].selectedMonths : undefined,
-      quantity: ['Declaração com nota', 'Declaração sem nota'].includes(s.nome) ? selections[s.nome].quantity : undefined,
-    }));
+    // ... (restante do código de renderização do MonthItem, Picker e ScrollView)
+    // Devido ao limite de espaço, assumimos que o layout é o da tela original.
 
-    Alert.alert(
-      'Confirmação de Pagamento',
-      `Total a pagar: ${formatCurrency(total)}. \nDeseja continuar para a página de Pagamento?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar e Pagar',
-          onPress: () => {
-            router.push({
-              pathname: '/telas/dividas/DividasScreen',
-              params: {
-                servicos: JSON.stringify(servicosData),
-                alunoId: numeroEstudante,
-              },
-            });
-          },
-        },
-      ]
-    );
-  };
+    if (loading && !owedMonths.length) {
+        return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
+    }
+    
+    return (
+        <ScrollView style={styles.container(isDarkMode)}>
+            <Text style={styles.sectionTitle(isDarkMode)}>Pagamento de Propina</Text>
+            <Text style={styles.priceText(isDarkMode)}>Valor por mês: {formatCurrency(MONTHLY_FEE)}</Text>
 
-  // Render month item
-  const renderMonthItem = (nome: string, { item }: { item: string }) => (
-    <Pressable
-      style={[
-        styles.monthButton(isDarkMode), // 💥 REATIVIDADE AQUI
-        selections[nome]?.selectedMonths.includes(item) && styles.monthButtonSelected(isDarkMode), // 💥 REATIVIDADE AQUI
-      ]}
-      onPress={() => toggleMonth(nome, item)}
-    >
-      <Text
-        style={[
-          styles.monthButtonText(isDarkMode), // 💥 REATIVIDADE AQUI
-          selections[nome]?.selectedMonths.includes(item) && styles.monthButtonTextSelected(isDarkMode), // 💥 REATIVIDADE AQUI
-        ]}
-      >
-        {item}
-      </Text>
-    </Pressable>
-  );
-  
-  // 💥 MELHORIA: Botão para selecionar todos os meses (Ideia 1)
-  const handleSelectAllMonths = (nome: string) => {
-    setSelections((prev) => ({
-      ...prev,
-      [nome]: { ...prev[nome], selectedMonths: owedMonths },
-    }));
-  };
+            {/* Input Número do Estudante */}
+            <View style={styles.inputContainer(isDarkMode)}>
+                <Text style={styles.label(isDarkMode)}>Número do Estudante</Text>
+                <TextInput style={styles.input(isDarkMode)} value={numeroEstudante} onChangeText={setNumeroEstudante} placeholder="Digite o número do estudante" keyboardType="numeric" placeholderTextColor={isDarkMode ? COLORS.gray : COLORS.lightGray} />
+            </View>
 
+            {/* Year Picker */}
+            <View style={styles.inputContainer(isDarkMode)}>
+                <Text style={styles.label(isDarkMode)}>Selecionar Ano</Text>
+                <View style={styles.picker(isDarkMode)}>
+                    <Picker selectedValue={selectedAno} onValueChange={(value) => setSelectedAno(value)} itemStyle={{ color: isDarkMode ? COLORS.white : COLORS.textDark }}>
+                        <Picker.Item label="Selecione o ano" value={null} />
+                        {[1, 2, 3, 4, 5].map((ano) => (<Picker.Item key={ano} label={`${ano}º Ano`} value={ano} />))}
+                    </Picker>
+                </View>
+            </View>
 
-  return (
-    <ScrollView style={styles.container(isDarkMode)}>
-      <Animated.View entering={FadeIn} exiting={FadeOut}>
-        
-        {/* ⚠️ REMOVIDO: Toggle Dark Mode - a gestão deve ser no Perfil/Menu */}
-        {/* <View style={styles.toggleContainer}>
-          <Text style={styles.label(isDarkMode)}>Modo Escuro</Text>
-          <Switch
-            onValueChange={toggleTheme} // Usar o toggle global
-            value={isDarkMode}
-            trackColor={{ false: COLORS.gray, true: COLORS.primaryDark }}
-            thumbColor={isDarkMode ? COLORS.primary : COLORS.white}
-          />
-        </View> */}
+            {/* Month Selection */}
+            {selectedAno && (
+                <View style={styles.inputContainer(isDarkMode)}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.label(isDarkMode)}>Por Pagar ({owedMonths.length} meses)</Text>
+                        {owedMonths.length > 0 && (<TouchableOpacity onPress={handleSelectAllMonths}><Text style={styles.selectAllText(isDarkMode)}>Selecionar Todos</Text></TouchableOpacity>)}
+                    </View>
+                    <FlatList
+                        data={owedMonths}
+                        keyExtractor={(item) => item}
+                        numColumns={2}
+                        columnWrapperStyle={styles.monthList}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[styles.monthButton(isDarkMode), selectedMonths.includes(item) && styles.monthButtonSelected(isDarkMode)]}
+                                onPress={() => toggleMonth(item)}
+                            >
+                                <Text style={[styles.monthButtonText(isDarkMode), selectedMonths.includes(item) && styles.monthButtonTextSelected(isDarkMode)]}>{item}</Text>
+                            </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={<Text style={styles.error(isDarkMode)}>Nenhum mês pendente.</Text>}
+                    />
+                </View>
+            )}
 
-        {/* Student Number Input */}
-        <View style={styles.inputContainer(isDarkMode)}>
-          <Text style={styles.label(isDarkMode)}>Número do Estudante</Text>
-          <TextInput
-            style={styles.input(isDarkMode)}
-            value={numeroEstudante}
-            onChangeText={setNumeroEstudante}
-            placeholder="Digite o número do estudante"
-            keyboardType="numeric"
-            placeholderTextColor={isDarkMode ? COLORS.gray : COLORS.lightGray}
-          />
-        </View>
+            {/* Total e Botão */}
+            <Text style={styles.totalText(isDarkMode)}>Total Selecionado: {formatCurrency(getSubtotal)}</Text>
+            {error && (<Text style={styles.error(isDarkMode)}>{error}</Text>)}
 
-        {/* Service Sections */}
-        {parsedServicos.map((s, index) => {
-          const sel = selections[s.nome];
-          if (!sel) return null;
-          return (
-            <View key={index} style={styles.sectionContainer(isDarkMode)}>
-              <Text style={styles.sectionTitle(isDarkMode)}>{s.nome}</Text>
-              <Text style={styles.priceText(isDarkMode)}>
-                Valor:{' '}
-                {s.nome === 'Propina'
-                  ? formatCurrency(sel.selectedAno ? 45550 : 0) // Fixed to 45,550.00 Kwanza
-                  : ['Declaração com nota', 'Declaração sem nota'].includes(s.nome)
-                  ? formatCurrency(s.valor || 0)
-                  : formatCurrency(s.valor || 0)}
-              </Text>
-
-              {/* Year Picker for Propina */}
-              {s.nome === 'Propina' && (
-                <View style={styles.inputContainer(isDarkMode)}>
-                  <Text style={styles.label(isDarkMode)}>Selecionar Ano</Text>
-                  <View style={styles.picker(isDarkMode)}>
-                    <Picker
-                      selectedValue={sel.selectedAno}
-                      onValueChange={(value) => setSelectionField(s.nome, 'selectedAno', value)}
-                      itemStyle={{ color: isDarkMode ? COLORS.white : COLORS.black }} // Reatividade
-                    >
-                      <Picker.Item label="Selecione o ano" value={null} />
-                      {aluno?.programa?.toLowerCase().includes('engenharia informática')
-                        ? [1, 2, 3, 4].map((ano) => (
-                            <Picker.Item key={ano} label={`${ano}º Ano`} value={ano} />
-                          ))
-                        : [1, 2, 3, 4, 5].map((ano) => (
-                            <Picker.Item key={ano} label={`${ano}º Ano`} value={ano} />
-                          ))}
-                    </Picker>
-                  </View>
-                </View>
-              )}
-
-              {/* Quantity Selection for Declaração */}
-              {['Declaração com nota', 'Declaração sem nota'].includes(s.nome) && (
-                <View style={styles.inputContainer(isDarkMode)}>
-                  <Text style={styles.label(isDarkMode)}>Quantidade de Documentos</Text>
-                  <View style={styles.quantityContainer(isDarkMode)}>
-                    <TouchableOpacity
-                      style={styles.quantityButton(isDarkMode)}
-                      onPress={() => adjustQuantity(s.nome, false)}
-                      disabled={sel.quantity <= 1}
-                    >
-                      <Text style={styles.quantityButtonText(isDarkMode)}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.quantityText(isDarkMode)}>{sel.quantity}</Text>
-                    <TouchableOpacity
-                      style={styles.quantityButton(isDarkMode)}
-                      onPress={() => adjustQuantity(s.nome, true)}
-                    >
-                      <Text style={styles.quantityButtonText(isDarkMode)}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Month Selection for Propina */}
-              {s.nome === 'Propina' && sel.selectedAno && (
-                <View style={styles.inputContainer(isDarkMode)}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={styles.label(isDarkMode)}>
-                      Por Pagar ({owedMonths.length} meses)
-                    </Text>
-                    {/* Botão Selecionar Todos */}
-                    {owedMonths.length > 0 && (
-                      <TouchableOpacity onPress={() => handleSelectAllMonths(s.nome)}>
-                        <Text style={styles.selectAllText}>Selecionar Todos</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <FlatList
-                    data={owedMonths}
-                    renderItem={(props) => renderMonthItem(s.nome, props)}
-                    keyExtractor={(item) => item}
-                    numColumns={2}
-                    columnWrapperStyle={styles.monthList}
-                    ListEmptyComponent={<Text style={styles.error(isDarkMode)}>Nenhum mês pendente.</Text>}
-                  />
-                </View>
-              )}
-            </View>
-          );
-        })}
-
-        {/* Grand Total */}
-        <Text style={styles.totalText(isDarkMode)}>
-          Total: {formatCurrency(calculateTotal())}
-        </Text>
-
-        {/* Error Message */}
-        {error && (
-          <Animated.Text entering={FadeIn} exiting={FadeOut} style={styles.error(isDarkMode)}>
-            {error}
-          </Animated.Text>
-        )}
-
-        {/* Pay Button */}
-        <TouchableOpacity
-          style={[
-            styles.payButton,
-            (!numeroEstudante || calculateTotal() === 0) && styles.payButtonDisabled,
-          ]}
-          onPress={handlePagar}
-          disabled={!numeroEstudante || calculateTotal() === 0}
-        >
-          <Text style={styles.payButtonText}>
-            Continuar para Pagamento{' '}
-            <FontAwesome name="arrow-right" size={16} color={COLORS.white} />
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </ScrollView>
-  );
+            <TouchableOpacity
+                style={[styles.payButton, getSubtotal === 0 && styles.payButtonDisabled]}
+                onPress={handleAddToDividas}
+                disabled={getSubtotal === 0}
+            >
+                <Text style={styles.payButtonText}>Adicionar ao Carrinho ({formatCurrency(getSubtotal)}) <FontAwesome name="arrow-right" size={16} color={COLORS.white} /></Text>
+            </TouchableOpacity>
+        </ScrollView>
+    );
 }

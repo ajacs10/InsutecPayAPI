@@ -16,6 +16,8 @@ export const COLORS = {
     background: lightBackground,
     white: '#fff',
     cardShadow: '#000',
+    // 💡 Adicionado 'danger' para compatibilidade com TransactionScreen.tsx
+    danger: errorColor, 
 };
 
 export const styles = StyleSheet.create({
@@ -74,7 +76,8 @@ export const styles = StyleSheet.create({
     totalValue: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: COLORS.error, // Dívida em destaque
+        // Corrigido para PRIMARY (Azul), pois é o valor a pagar, não um erro.
+        color: COLORS.primary, 
     },
 
     // --- Secção de Transação e Status ---
@@ -116,6 +119,27 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     
+    // --- QR Code ---
+    qrCodeContainer: {
+        alignItems: 'center',
+        marginVertical: 20,
+        padding: 10,
+        backgroundColor: COLORS.white,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    qrCodeLabel: {
+        marginTop: 15,
+        fontSize: 14,
+        color: COLORS.dark,
+    },
+    qrCodeValue: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.dark,
+        marginTop: 5,
+    },
     // --- Estados de Feedback ---
     successBox: {
         backgroundColor: '#e6ffed', // Fundo verde claro

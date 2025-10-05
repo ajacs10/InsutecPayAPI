@@ -28,7 +28,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const token = await AsyncStorage.getItem('@InsutecPay:authToken');
 
         if (alunoData && token) {
-          // Usamos o nr_estudante como token, mas precisamos do objeto Aluno
           const parsedAluno = JSON.parse(alunoData) as Aluno;
           setAluno(parsedAluno);
           console.log(`[Auth] Aluno ${parsedAluno.nr_estudante} logado via persistência.`);
@@ -45,18 +44,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (nr_estudante: string, password: string) => {
     setIsLoading(true);
     try {
-      // Chama a função login da API
+      console.log('[Auth] Iniciando signIn com:', { nr_estudante }); // Log para depuração
       const { aluno: newAluno, token } = await login(nr_estudante, password);
 
-      // Armazena os dados do aluno e o token (o nr_estudante)
       await AsyncStorage.setItem('@InsutecPay:alunoData', JSON.stringify(newAluno));
       await AsyncStorage.setItem('@InsutecPay:authToken', token);
       
       setAluno(newAluno);
       console.log(`[Auth] Login bem-sucedido para ${newAluno.nr_estudante}`);
-
     } catch (error: any) {
-      // O erro é lançado pela função API com a mensagem amigável
+      console.error('[Auth] Erro no signIn:', error.message); // Log para depuração
       throw new Error(error.message); 
     } finally {
       setIsLoading(false);
@@ -77,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Funçao de registo (Mantida, mas pode ser removida se o foco for só Login)
   const signUp = async (data: any) => {
     setIsLoading(true);
     try {
@@ -88,14 +84,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setAluno(newAluno);
       console.log(`[Auth] Registo bem-sucedido para ${newAluno.nr_estudante}`);
-
     } catch (error: any) {
       throw new Error(error.message);
     } finally {
       setIsLoading(false);
     }
   };
-
 
   return (
     <AuthContext.Provider value={{ aluno, isLoading, signIn, signOut, signUp }}>
