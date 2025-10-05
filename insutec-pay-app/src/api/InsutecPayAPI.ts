@@ -4,15 +4,14 @@ import { Platform } from 'react-native';
 import { Aluno, Divida, PagamentoTransacao } from './types'; // Assumindo que 'types' está na mesma pasta
 
 // =========================================================================
-// CONFIGURAÇÃO DA URL BASE DA API - CORRIGIDO COM O IP DA VM/HOST
+// CONFIGURAÇÃO DA URL BASE DA API - CORRIGIDO PARA O ENDEREÇO PÚBLICO DO RENDER
 // =========================================================================
 
-// 🚨 CORREÇÃO FINAL: Usamos o IP da tua VM (10.12.1.2) que é visível
-// externamente na tua configuração de rede.
-const MEU_IP_DA_VM = '10.12.1.2'; 
+// 🚨 ESTA LINHA FOI ATUALIZADA: Agora usa o domínio público do Render.
+const DOMAIN_PUBLICO = 'https://insutecpayapi.onrender.com';
 
-const API_BASE_URL = `http://${MEU_IP_DA_VM}:3000/api`;
-export const DOCS_BASE_URL = `http://${MEU_IP_DA_VM}:3000/documentos_gerados`;
+const API_BASE_URL = `${DOMAIN_PUBLICO}/api`;
+export const DOCS_BASE_URL = `${DOMAIN_PUBLICO}/documentos_gerados`;
 
 console.log(`[API] URL Base da API: ${API_BASE_URL}`);
 
@@ -51,7 +50,8 @@ export const login = async (nr_estudante: string, password: string): Promise<{ a
     }
     throw new Error(response.data.message || 'Falha desconhecida no Login.');
   } catch (error: any) {
-    const msg = error.response?.data?.message || `Não foi possível conectar ao servidor (${MEU_IP_DA_VM}:3000).`;
+    // A mensagem de erro agora refere-se ao Render
+    const msg = error.response?.data?.message || `Não foi possível conectar ao servidor (${DOMAIN_PUBLICO}).`;
     throw new Error(msg);
   }
 };
