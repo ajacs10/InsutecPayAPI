@@ -1,12 +1,28 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  user: 'ajacs',
-  host: 'localhost', // ou IP do servidor
-  database: 'insutecpay',
-  password: 'Beijodela@120702',
-  port: 5432,
-});
+// 1. Definição da string de conexão para o Render
+const connectionString = process.env.DATABASE_URL;
+
+// 2. Configuração do Pool: Usa a string de conexão do Render se estiver definida
+const pool = new Pool(
+    // Se connectionString existir (no Render), use-a
+    connectionString ? 
+    {
+        connectionString: connectionString,
+        // Configuração SSL necessária para o Render
+        ssl: {
+            rejectUnauthorized: false
+        }
+    } 
+    // Senão, usa a configuração local para o desenvolvimento na sua VM
+    : 
+    {
+        user: 'ajacs',
+        host: 'localhost',
+        database: 'insutecpay',
+        password: 'Beijodela@120702',
+        port: 5432,
+    }
+);
 
 module.exports = pool;
-
