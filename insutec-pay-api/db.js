@@ -5,7 +5,7 @@ const connectionString = process.env.DATABASE_URL;
 
 // 2. Configuração do Pool: Usa a string de conexão do Render se estiver definida
 const pool = new Pool(
-    // Se connectionString existir (no Render), use-a
+    // Se connectionString existir (no Render), usa-a
     connectionString ? 
     {
         connectionString: connectionString,
@@ -20,7 +20,7 @@ const pool = new Pool(
         user: 'ajacs',
         host: 'localhost',
         database: 'insutecpay',
-        password: 'Beijodela@120702',
+        password: 'Beijodela@120702', // Use a senha correta da sua VM
         port: 5432,
     }
 );
