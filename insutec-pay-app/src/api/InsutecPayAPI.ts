@@ -1,10 +1,13 @@
+// src/api/InsutecPayAPI.ts
+
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+// Certifique-se de que o caminho para 'types' está correto
 import { Aluno, Divida, PagamentoTransacao } from './types'; 
 
 // =========================================================================
-// CONFIGURAÇÃO DA URL BASE DA API - CORRIGIDO PARA O ENDEREÇO PÚBLICO DO RENDER
+// CONFIGURAÇÃO DA URL BASE DA API
 // =========================================================================
 
 const DOMAIN_PUBLICO = 'https://insutecpayapi.onrender.com';
@@ -17,7 +20,8 @@ console.log(`[API] URL Base da API: ${API_BASE_URL}`);
 const api = axios.create({
     baseURL: API_BASE_URL,
     headers: { 'Content-Type': 'application/json' },
-    timeout: 15000,
+    // 💡 OBSERVAÇÃO: Mantenha em 15s por enquanto, mas aumente se houver timeouts recorrentes.
+    timeout: 15000, 
 });
 
 // Interceptor para adicionar o token de autenticação em todas as requisições
@@ -39,17 +43,20 @@ api.interceptors.request.use(
 // --------------------- LOGIN ---------------------
 export const login = async (nr_estudante: string, password: string): Promise<{ aluno: Aluno, token: string }> => {
     try {
-        console.log('[API] Chamando login para:', { nr_estudante }); // Log para depuração
+        console.log('[API] Chamando login para:', { nr_estudante });
         const response = await api.post('/aluno/login', { nr_estudante, password });
         
-        const token = response.data.token || nr_estudante; 
+        const token = response.data.token; 
         
-        if (response.data.success && response.data.aluno) {
+        // 💡 CORREÇÃO: Força a existência de um token válido e do objeto aluno
+        if (response.data.success && response.data.aluno && token) {
             return { aluno: response.data.aluno as Aluno, token };
         }
-        throw new Error(response.data.message || 'Falha desconhecida no Login.');
+        
+        throw new Error(response.data.message || 'Dados de login incompletos ou inválidos.');
+        
     } catch (error: any) {
-        console.error('[API] Erro no login:', error.response?.data || error.message); // Log para depuração
+        console.error('[API] Erro no login:', error.response?.data || error.message);
         const msg = error.response?.data?.message || `Não foi possível conectar ao servidor (${DOMAIN_PUBLICO}).`;
         throw new Error(msg);
     }
@@ -64,7 +71,7 @@ export const register = async (data: {
 }): Promise<{ aluno: Aluno, token: string }> => {
     try {
         const response = await api.post('/aluno/register', data);
-        const token = response.data.token || data.nr_estudante;
+        const token = response.data.token || data.nr_estudante; // Token pode ser um ID de sessão temporário
         
         if (response.data.success && response.data.aluno) {
             return { aluno: response.data.aluno as Aluno, token };
@@ -134,19 +141,15 @@ export const getHistoricoTransacoes = async (alunoId: string): Promise<Pagamento
     try {
         const response = await api.get(`/aluno/${alunoId}/historico`);
         
-        // CORREÇÃO: Extração robusta do array de transações para evitar falhas de tipagem
-        // Tenta buscar na propriedade 'historico' (padrão comum de APIs) e fallback para a raiz da resposta
-        if (response.data && Array.isArray(response.data.historico)) {
-            return response.data.historico as PagamentoTransacao[];
-        }
+        // Extração robusta do array de transações
+        const historico = response.data.historico || response.data;
         
-        // Caso a API retorne o array diretamente (se não houver um objeto wrapper)
-        if (Array.isArray(response.data)) {
-            return response.data as PagamentoTransacao[];
+        if (Array.isArray(historico)) {
+            return historico as PagamentoTransacao[];
         }
         
         console.warn('[API] Resposta de histórico inesperada:', response.data);
-        throw new Error('Formato de dados de histórico inválido. Não foi possível extrair a lista de transações.');
+        throw new Error('Formato de dados de histórico inválido.');
         
     } catch (error: any) {
         console.error('[API] Erro ao carregar histórico:', error.response?.data || error.message);
@@ -158,4 +161,3 @@ export const getHistoricoTransacoes = async (alunoId: string): Promise<Pagamento
 export const getTransacoesRecentes = async (alunoId: string): Promise<PagamentoTransacao[]> => {
     return getHistoricoTransacoes(alunoId);
 };
-

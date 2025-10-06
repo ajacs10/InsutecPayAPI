@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { Aluno } from './types';
 import { login, register } from '../src/api/InsutecPayAPI';
 
@@ -48,15 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (nr_estudante: string, password: string) => {
     console.log('[AuthProvider] Iniciando signIn:', { nr_estudante });
+    setIsLoading(true);
     try {
       const { aluno: newAluno, token } = await login(nr_estudante, password);
       setAluno(newAluno);
       await AsyncStorage.setItem('@InsutecPay:alunoData', JSON.stringify(newAluno));
       await AsyncStorage.setItem('@InsutecPay:authToken', token);
       console.log(`[AuthProvider] Login bem-sucedido para ${newAluno.nr_estudante}`);
+      router.replace('/telas/home/HomeScreen');
     } catch (error: any) {
       console.error('[AuthProvider] Erro no signIn:', error.message);
-      throw new Error(error.message);
+      throw new Error(error.message || 'Falha no login');
     } finally {
       setIsLoading(false);
       console.log('[AuthProvider] signIn concluído, isLoading: false');
@@ -70,8 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('@InsutecPay:alunoData');
       setAluno(null);
       console.log('[AuthProvider] Logout bem-sucedido');
+      router.replace('/telas/login/LoginScreen');
     } catch (e) {
       console.error('[AuthProvider] Erro ao fazer logout:', e);
+      throw new Error('Erro ao fazer logout');
     } finally {
       setIsLoading(false);
       console.log('[AuthProvider] signOut concluído, isLoading: false');
@@ -80,15 +85,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (data: any) => {
     console.log('[AuthProvider] Iniciando signUp:', data);
+    setIsLoading(true);
     try {
       const { aluno: newAluno, token } = await register(data);
       setAluno(newAluno);
       await AsyncStorage.setItem('@InsutecPay:alunoData', JSON.stringify(newAluno));
       await AsyncStorage.setItem('@InsutecPay:authToken', token);
       console.log(`[AuthProvider] Registro bem-sucedido para ${newAluno.nr_estudante}`);
+      router.replace('/telas/home/HomeScreen');
     } catch (error: any) {
       console.error('[AuthProvider] Erro no signUp:', error.message);
-      throw new Error(error.message);
+      throw new Error(error.message || 'Falha no registro');
     } finally {
       setIsLoading(false);
       console.log('[AuthProvider] signUp concluído, isLoading: false');
