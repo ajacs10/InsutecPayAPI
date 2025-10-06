@@ -1,53 +1,41 @@
-import React, { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
+import React from 'react';
+import { Stack, Redirect, usePathname } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { Text } from 'react-native'; // Importação do Text do React Native
-
-// Contexto de autenticação
+import { Text, Platform, View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../components/AuthContext';
-
-// Contexto de tema
 import { ThemeProvider } from './telas/ThemeContext/ThemeContext';
+import CustomSplashScreen from './SplashScreen'; 
 
-// Tela de Splash
-import CustomSplashScreen from './SplashScreen';
-
-// Paleta de cores principal (Mantenha esta paleta consistente)
+// Definindo as Cores
 const COLORS = {
-    primary: '#00CC00', // Verde Neon mais escuro para Header de fundo
-    background: '#f8f9fa',
-    textDark: '#333',
-    textLight: '#fff',
-    primaryDark: '#009900', 
-    accent: '#00FFFF', // Neon cyan
-    darkBackground: '#1C1C1C', // Fundo escuro
-    cardBackground: '#3A3A3A',
-    success: '#00FF00',
-    danger: '#FF3333',
-    warning: '#FFCC00',
-    secondary: '#00FFFF',
-    text: '#E0E0E0',
-    subText: '#AAAAAA',
-    white: '#FFFFFF',
-    gray: '#666666',
+    primary: '#39FF14', 
+    textLight: '#E0E0E0',
+    darkBackground: '#121212',
+    dark: '#000000',
+    white: '#FFFFFF', // Adicionado para consistência
 };
 
-// ----------------------------------------------------------------------
-// 1️⃣ RootLayout: Carrega fontes e envolve o app com AuthProvider
-// ----------------------------------------------------------------------
+// =========================================================================
+// 1. ROOT LAYOUT (Providers)
+// =========================================================================
 export default function RootLayout() {
-    // Carrega a fonte (certifique-se de que o caminho da fonte está correto)
     const [loaded, error] = useFonts({
         SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-        // Adicione outras fontes aqui se necessário
     });
 
+    // Exibir tela de carregamento de fontes
     if (!loaded && !error) {
-        return null; // Espera o carregamento da fonte
+        return (
+            <View style={{ flex: 1, backgroundColor: COLORS.darkBackground, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ color: COLORS.textLight, marginTop: 10 }}>A carregar recursos...</Text>
+            </View>
+        );
     }
+    // Exibir erro de carregamento de fontes
     if (error) {
-        console.error('Erro ao carregar fontes:', error);
-        return <Text>Erro ao carregar fontes. Tente novamente.</Text>; // Fallback básico
+        console.error('[RootLayout] Erro ao carregar fontes:', error);
+        return <Text>Erro ao carregar fontes. Tente novamente.</Text>;
     }
 
     return (
@@ -59,108 +47,92 @@ export default function RootLayout() {
     );
 }
 
-// ----------------------------------------------------------------------
-// 2️⃣ AppLayout: Controla splash e navegação inicial
-// ----------------------------------------------------------------------
+// =========================================================================
+// 2. APP LAYOUT (Lógica de Autenticação e Navegação)
+// =========================================================================
 function AppLayout() {
     const { isLoading, aluno } = useAuth();
+    
+    // --- Constantes de Rota ---
+    const HOME_ROUTE = '/telas/home/HomeScreen';
+    const LOGIN_ROUTE = '/telas/login/LoginScreen';
 
-    useEffect(() => {
-        // Atrasar a navegação um pouco para garantir que o Splash seja visto
-        const delay = 1000; // 1 segundo
-        
-        if (!isLoading) {
-            const timer = setTimeout(() => {
-                if (aluno) {
-                    // Usuário logado: vai para a home
-                    router.replace('/telas/home/HomeScreen'); 
-                } else {
-                    // Usuário não logado: vai para o login
-                    router.replace('/telas/login/LoginScreen'); 
-                }
-            }, delay);
-            return () => clearTimeout(timer); // Limpa o timer se o componente desmontar
-        }
-
-    }, [isLoading, aluno]);
-
-    // Enquanto carrega (e por 1 segundo após o carregamento), mostra o Splash
+    // 1. Exibir a tela de splash enquanto a autenticação está a carregar
     if (isLoading) {
         return <CustomSplashScreen />;
     }
 
-    // Se a navegação ainda não ocorreu (e o isLoading é falso), renderizamos o Stack
     return (
         <Stack
             screenOptions={{
-                headerStyle: { backgroundColor: COLORS.primary },
-                headerTintColor: COLORS.textLight,
-                headerTitleStyle: { fontWeight: 'bold' },
-                headerBackTitleVisible: false, // Oculta o título do botão de voltar no iOS
+                headerStyle: {
+                    backgroundColor: COLORS.primary,
+                    ...(Platform.OS === 'web' ? { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { elevation: 4 }),
+                },
+                headerTintColor: COLORS.dark,
+                headerTitleStyle: { fontWeight: 'bold', fontFamily: 'SpaceMono' },
+                headerBackTitleVisible: false,
             }}
         >
-            {/* Login (sem cabeçalho) */}
+            
+            {/* 1. Rota Index ('/') com Lógica de Redirecionamento */}
             <Stack.Screen
-                name="telas/login/LoginScreen"
-                options={{ headerShown: false }}
-            />
-
-            {/* Home (sem cabeçalho, pois você implementou um header customizado no HomeScreen.tsx) */}
-            <Stack.Screen
-                name="telas/home/HomeScreen"
+                name="index"
                 options={{
-                    headerShown: false, // ✅ CORREÇÃO APLICADA: Remove o header de navegação
+                    headerShown: false,
+                    redirect: aluno ? HOME_ROUTE : LOGIN_ROUTE, 
+                }}
+            />
+            
+            {/* 2. Rotas de Autenticação */}
+            <Stack.Screen name="telas/login/LoginScreen" options={{ headerShown: false }} />
+            <Stack.Screen name="SplashScreen" options={{ headerShown: false }} />
+
+            {/* 3. Rota Principal */}
+            <Stack.Screen name="telas/home/HomeScreen" options={{ headerShown: false }} />
+            
+            {/* 4. Rotas de Serviços */}
+            <Stack.Screen name="telas/servicos/Propina" options={{ title: 'Pagamento de Propina', headerShown: true }} />
+            <Stack.Screen
+                name="telas/servicos/Reconfirmacaomatricula"
+                options={{ title: 'Reconfirmação de Matrícula', headerShown: true }}
+            />
+            <Stack.Screen
+                name="telas/servicos/FolhadeProva"
+                options={{ title: 'Solicitação de Folha de Prova', headerShown: true }}
+            />
+            <Stack.Screen name="telas/ServicoPagamento/ServicoPagamentoScreen" options={{ title: 'Serviços e Pagamentos' }} />
+            
+            {/* 5. Rotas de Utilidade */}
+            <Stack.Screen name="telas/dividas/DividasScreen" options={{ title: 'Minhas Dívidas' }} />
+            <Stack.Screen name="telas/historico/HistoricoScreen" options={{ title: 'Histórico de Pagamentos' }} />
+            <Stack.Screen name="telas/notificacoes/NotificacoesScreen" options={{ title: 'Notificações' }} />
+            <Stack.Screen name="telas/perfil/PerfilScreen" options={{ title: 'Meu Perfil' }} />
+            <Stack.Screen name="telas/financeiro/CarteiraScreen" options={{ title: 'Minha Carteira' }} />
+
+            {/* 6. ROTAS MODAIS / TRANSAÇÃO */}
+            
+            {/* 🎯 ROTA DE COMPROVATIVO (Estática, usando o nome do ficheiro) */}
+            <Stack.Screen
+                // O nome da rota deve ser o caminho completo do ficheiro
+                name="telas/comprovativo/ComprovativoScreen" 
+                options={{
+                    title: 'Comprovativo de Pagamento',
+                    presentation: 'modal',
                 }}
             />
 
-            {/* Dívidas */}
+            {/* ROTA DINÂMICA (Original para detalhes de transação por ID) */}
             <Stack.Screen
-                name="telas/dividas/DividasScreen"
-                options={{ title: 'Minhas Dívidas' }}
-            />
-
-            {/* Perfil */}
-            <Stack.Screen
-                name="telas/perfil/PerfilScreen"
-                options={{ title: 'Meu Perfil' }}
-            />
-
-            {/* Histórico */}
-            <Stack.Screen
-                name="telas/historico/HistoricoScreen"
-                options={{ title: 'Histórico de Pagamentos' }}
-            />
-            
-            {/* Pagamento de Serviço */}
-            <Stack.Screen
-                name="telas/ServicoPagamento/ServicoPagamentoScreen"
-                options={{ title: 'Pagamento de Serviço' }}
-            />
-
-            {/* Transação (Detalhes/Confirmação de Transação - apresentada como Modal) */}
-            <Stack.Screen
-                name="telas/transacao/[id]" // Rota dinâmica
+                name="telas/transacao/[id]"
                 options={{
                     title: 'Detalhes da Transação',
                     presentation: 'modal',
                 }}
             />
-
-            {/* Tela de Splash (não é usada diretamente, mas precisa estar no Stack) */}
-            <Stack.Screen
-                name="SplashScreen"
-                options={{ headerShown: false }}
-            />
             
-            {/* Tela de Notificações (Adicionei para completar o fluxo de Home) */}
-            <Stack.Screen
-                name="telas/notificacoes/NotificacoesScreen"
-                options={{ title: 'Notificações' }}
-            />
-
-            {/* Catch-all para rotas não encontradas */}
-            <Stack.Screen name="[...missing]" options={{ title: '404 - Não Encontrado' }} />
-
+            {/* 7. Rota Not Found */}
+            <Stack.Screen name="+not-found" />
         </Stack>
     );
 }

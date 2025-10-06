@@ -1,10 +1,7 @@
-// styles/_ServicoStyles.ts
+// /styles/_ServicoStyles.style.ts (COMPLETO E CORRIGIDO)
 
 import { StyleSheet, Platform } from 'react-native';
 
-// =========================================================================
-// PALETA DE CORES (Cores principais para referência)
-// =========================================================================
 export const COLORS = {
     primary: '#39FF14', // Verde neon
     primaryDark: '#00E600',
@@ -21,248 +18,152 @@ export const COLORS = {
     white: '#FFFFFF',
     gray: '#666666',
     lightGray: '#BBBBBB',
+    dark: '#000000',
 };
 
 // =========================================================================
-// ESTILOS ESTÁTICOS (Propriedades que não dependem de isDarkMode)
+// ESTILOS ESTÁTICOS PUROS (Usados apenas para base de funções dinâmicas)
 // =========================================================================
-const staticStyles = StyleSheet.create({
-    // --- BOTÕES DE AÇÃO ---
-    payButton: {
-        paddingVertical: 14,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 16,
-        backgroundColor: COLORS.primary, // Cor principal para o botão final
-        elevation: 6,
-    },
-    payButtonDisabled: {
-        opacity: 0.5,
-        backgroundColor: COLORS.gray,
-    },
-    payButtonText: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: COLORS.darkBackground, 
-        marginLeft: 10,
-    },
-    
-    // 💡 NOVO: Estilo base para botões secundários (como "Adicionar Item")
-    secondaryButton: {
-        backgroundColor: COLORS.primaryDark + 'A0', // Um pouco transparente ou tom diferente
-        marginTop: 15,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-    },
-    
-    // --- ESTILOS DE LISTA/FLATLIST ---
-    monthList: { 
-        justifyContent: 'space-between',
-        flex: 1, 
-    },
-    
-    // 💡 NOVO: Card de Resumo de Item (para Folha de Prova)
-    itemSummaryCard: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        marginVertical: 4,
-        borderRadius: 8,
-        borderLeftWidth: 3,
-        borderLeftColor: COLORS.warning, // Cor de destaque
-        backgroundColor: COLORS.cardLight, // Será sobrescrito pela cor escura se isDarkMode for usada
-        ...Platform.select({ ios: { shadowOpacity: 0.1, shadowRadius: 3 }, android: { elevation: 1 } }),
-    },
-    itemSummaryText: {
-        flex: 1,
-        fontSize: 14,
-        fontWeight: '500',
-        color: COLORS.textDark, // Será sobrescrito pela cor escura
-    },
-    itemSummaryValue: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: COLORS.textDark, // Será sobrescrito pela cor escura
-        marginRight: 5,
-    },
-});
+const baseStyles = {
+    // Layout
+    safeArea: { flex: 1 },
+    container: { padding: 20 },
+    sectionContainer: { marginBottom: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 }, // DEFINIÇÃO BASE
+    // Inputs
+    inputContainer: { marginBottom: 15 }, 
+    label: { fontSize: 14, fontWeight: '500', marginBottom: 5 },
+    input: { padding: 12, borderRadius: 8, fontSize: 16, borderWidth: 1 },
+    picker: { borderRadius: 8, borderWidth: 1, overflow: 'hidden' },
+    // Sumário
+    summaryContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 10, marginTop: 20, borderWidth: 1 },
+    totalText: { fontSize: 18, fontWeight: '600' },
+    // Botões
+    payButton: { backgroundColor: COLORS.primary, padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 30 },
+    payButtonDisabled: { backgroundColor: COLORS.lightGray, opacity: 0.7 },
+    payButtonText: { color: COLORS.dark, fontSize: 18, fontWeight: 'bold' },
+    // Feedback
+    emptyText: { fontSize: 16, textAlign: 'center', padding: 20 },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 150 },
+    loadingText: { marginTop: 10, fontSize: 16 },
+    priceText: { fontSize: 16, marginBottom: 10, marginLeft: 5 },
+    // Detalhes da transação
+    transactionDetailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
+};
 
 // =========================================================================
-// ESTILOS DINÂMICOS (DEFINIDOS COMO FUNÇÕES)
+// ESTILOS DINÂMICOS (Exportados - TODAS SÃO FUNÇÕES!)
 // =========================================================================
 export const styles = {
-    ...staticStyles, // Inclui estilos estáticos
-
-    // Container Geral
-    container: (isDarkMode: boolean) => ({
-        flex: 1,
+    // Layout
+    safeArea: (isDarkMode: boolean) => ({
+        ...baseStyles.safeArea,
         backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-        paddingTop: Platform.OS === 'android' ? 20 : 0, 
-        paddingHorizontal: 16,
     }),
-    
-    // Container de Secção (Usado em Folha de Prova)
+    container: (isDarkMode: boolean) => ({
+        ...baseStyles.container,
+    }),
     sectionContainer: (isDarkMode: boolean) => ({
-        padding: 15,
-        borderRadius: 12,
+        ...baseStyles.sectionContainer,
         backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-        marginBottom: 16,
+        padding: 15,
+        borderRadius: 10,
         borderWidth: 1,
         borderColor: isDarkMode ? COLORS.subText + '30' : COLORS.lightGray,
     }),
-
-    // Título de Secção (Menor que headerTitle)
-    sectionTitle: (isDarkMode: boolean) => ({
-        fontSize: 22,
-        fontWeight: '700',
+    // 💡 SECTIONTITLE AGORA É UMA FUNÇÃO (RESOLVE O ERRO)
+    sectionTitle: (isDarkMode: boolean) => ({ 
+        ...baseStyles.sectionTitle,
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginBottom: 15,
-        textAlign: 'left',
     }),
     
-    // Título principal da tela (Corrigido da PropinaScreen)
-    headerTitle: (isDarkMode: boolean) => ({
-        fontSize: 28,
-        fontWeight: '800',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        textAlign: 'center',
-        marginBottom: 10,
-    }),
-    
-    // Texto de preço por unidade/mês
-    priceText: (isDarkMode: boolean) => ({
-        fontSize: 16,
-        color: isDarkMode ? COLORS.subText : COLORS.gray,
-        textAlign: 'left',
-        marginBottom: 20,
-        marginLeft: 5,
-    }),
-
-    // Rótulo/Label
+    // Inputs
+    inputContainer: (isDarkMode: boolean) => ({ ...baseStyles.inputContainer }),
     label: (isDarkMode: boolean) => ({
-        fontSize: 16,
-        fontWeight: '600',
+        ...baseStyles.label,
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginBottom: 8,
     }),
-    
-    // Container de entrada (TextInput/Picker)
-    inputContainer: (isDarkMode: boolean) => ({
-        marginBottom: 16,
-    }),
-    
-    // Campo de entrada (TextInput)
     input: (isDarkMode: boolean) => ({
-        borderWidth: 1,
-        borderColor: isDarkMode ? COLORS.subText : COLORS.gray,
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        ...baseStyles.input,
         backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
+        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        borderColor: isDarkMode ? COLORS.subText : COLORS.lightGray,
     }),
-    
-    // Estilo do Picker (View Container)
     picker: (isDarkMode: boolean) => ({
-        borderWidth: 1,
-        borderColor: isDarkMode ? COLORS.subText : COLORS.gray,
-        borderRadius: 8,
+        ...baseStyles.picker,
         backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-        overflow: 'hidden',
-    }),
-    
-    // 💡 NOVO: Container de Quantidade (para Declaracoes)
-    quantityContainer: (isDarkMode: boolean) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderWidth: 1,
-        borderColor: isDarkMode ? COLORS.subText : COLORS.gray,
-        borderRadius: 8,
-        backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-        height: 50,
-    }),
-    
-    // 💡 NOVO: Botão de + / -
-    quantityButton: (isDarkMode: boolean) => ({
-        width: 50,
-        height: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightGray,
-        borderRadius: 8,
-    }),
-    
-    // 💡 NOVO: Texto do Botão de Quantidade
-    quantityButtonText: (isDarkMode: boolean) => ({
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: isDarkMode ? COLORS.primary : COLORS.textDark,
-    }),
-    
-    // 💡 NOVO: Texto de Quantidade
-    quantityText: (isDarkMode: boolean) => ({
-        fontSize: 20,
-        fontWeight: '600',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        borderColor: isDarkMode ? COLORS.subText : COLORS.lightGray,
     }),
 
-    // Texto de total (Label principal de total)
+    // Sumário
+    summaryContainer: (isDarkMode: boolean) => ({
+        ...baseStyles.summaryContainer,
+        backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
+        borderColor: isDarkMode ? COLORS.primary + '50' : COLORS.lightGray,
+    }),
     totalText: (isDarkMode: boolean) => ({
-        fontSize: 20,
-        fontWeight: '700',
+        ...baseStyles.totalText,
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginTop: 20,
-        marginBottom: 10,
-        textAlign: 'center',
+    }),
+    totalValue: (isDarkMode: boolean) => ({
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: COLORS.primary, 
     }),
 
-    // 💡 NOVO: Botão de Upload do BI
-    uploadButton: {
-        backgroundColor: COLORS.gray,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-    },
-    
-    // 💡 NOVO: Botão de Upload do BI - Sucesso
-    uploadButtonSuccess: {
-        backgroundColor: COLORS.success,
-    },
-    
-    // 💡 NOVO: Texto do Botão de Upload
-    uploadButtonText: {
-        marginLeft: 10,
-        color: COLORS.white,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-
-    // 💡 CORRIGINDO: Adaptar estilos de lista de itens para tema (Folha de Prova)
-    itemSummaryCard: (isDarkMode: boolean) => ({
-        ...staticStyles.itemSummaryCard, // Estilos estáticos
+    // Detalhes da Transação
+    transactionCard: (isDarkMode: boolean) => ({
         backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
+        borderRadius: 10,
+        padding: 15,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: isDarkMode ? COLORS.subText + '30' : COLORS.lightGray,
     }),
-    itemSummaryText: (isDarkMode: boolean) => ({
-        ...staticStyles.itemSummaryText,
+    transactionDetailRow: (isDarkMode: boolean) => ({
+        ...baseStyles.transactionDetailRow,
+        borderBottomWidth: 1,
+        borderBottomColor: isDarkMode ? COLORS.subText + '20' : COLORS.lightGray + '60',
+    }),
+    transactionLabel: (isDarkMode: boolean) => ({
+        fontSize: 14,
+        fontWeight: '500',
+        color: isDarkMode ? COLORS.subText : COLORS.gray,
+    }),
+    transactionValue: (isDarkMode: boolean) => ({
+        fontSize: 14,
+        fontWeight: '600',
+        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        maxWidth: '60%', // Evita que o texto quebre mal
+        textAlign: 'right',
+    }),
+
+    // Botões (Mantidos como objetos estáticos para uso simples)
+    payButton: baseStyles.payButton,
+    payButtonDisabled: baseStyles.payButtonDisabled,
+    payButtonText: baseStyles.payButtonText,
+
+    // Feedback
+    emptyText: (isDarkMode: boolean) => ({
+        ...baseStyles.emptyText,
+        color: isDarkMode ? COLORS.subText : COLORS.gray,
+    }),
+    error: (isDarkMode: boolean) => ({
+        color: COLORS.danger,
+        textAlign: 'center',
+        marginTop: 15,
+        fontSize: 14,
+    }),
+    loadingContainer: (isDarkMode: boolean) => ({
+        ...baseStyles.loadingContainer,
+        backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+    }),
+    loadingText: (isDarkMode: boolean) => ({
+        ...baseStyles.loadingText,
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
     }),
-    itemSummaryValue: (isDarkMode: boolean) => ({
-        ...staticStyles.itemSummaryValue,
-        color: isDarkMode ? COLORS.primary : COLORS.textDark,
-    }),
-    
-    // Texto de erro
-    error: (isDarkMode: boolean) => ({
-        fontSize: 14,
-        color: COLORS.danger,
-        marginVertical: 10,
-        textAlign: 'center',
+    priceText: (isDarkMode: boolean) => ({
+        ...baseStyles.priceText,
+        color: isDarkMode ? COLORS.subText : COLORS.gray,
     }),
 };

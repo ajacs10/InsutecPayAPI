@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Aluno } from './types'; 
-import { login, register } from '../src/api/InsutecPayAPI'; 
+import { Aluno } from './types';
+import { login, register } from '../src/api/InsutecPayAPI';
 
 // 1. Definição de Tipos
 interface AuthContextProps {
@@ -20,9 +21,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carrega os dados do aluno e o 'token' ao iniciar a aplicação
+  // Carrega os dados do aluno e o token ao iniciar a aplicação
   useEffect(() => {
     const loadAlunoData = async () => {
+      console.log('[AuthProvider] Iniciando carregamento de dados persistidos');
       try {
         const alunoData = await AsyncStorage.getItem('@InsutecPay:alunoData');
         const token = await AsyncStorage.getItem('@InsutecPay:authToken');
@@ -30,64 +32,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (alunoData && token) {
           const parsedAluno = JSON.parse(alunoData) as Aluno;
           setAluno(parsedAluno);
-          console.log(`[Auth] Aluno ${parsedAluno.nr_estudante} logado via persistência.`);
+          console.log(`[AuthProvider] Aluno carregado: ${parsedAluno.nr_estudante}`);
+        } else {
+          console.log('[AuthProvider] Nenhum dado de aluno ou token encontrado');
         }
       } catch (e) {
-        console.error("Erro ao carregar dados persistidos:", e);
+        console.error('[AuthProvider] Erro ao carregar dados persistidos:', e);
       } finally {
         setIsLoading(false);
+        console.log('[AuthProvider] Carregamento concluído, isLoading: false');
       }
     };
     loadAlunoData();
   }, []);
 
   const signIn = async (nr_estudante: string, password: string) => {
-    setIsLoading(true);
+    console.log('[AuthProvider] Iniciando signIn:', { nr_estudante });
     try {
-      console.log('[Auth] Iniciando signIn com:', { nr_estudante }); // Log para depuração
       const { aluno: newAluno, token } = await login(nr_estudante, password);
-
+      setAluno(newAluno);
       await AsyncStorage.setItem('@InsutecPay:alunoData', JSON.stringify(newAluno));
       await AsyncStorage.setItem('@InsutecPay:authToken', token);
-      
-      setAluno(newAluno);
-      console.log(`[Auth] Login bem-sucedido para ${newAluno.nr_estudante}`);
+      console.log(`[AuthProvider] Login bem-sucedido para ${newAluno.nr_estudante}`);
     } catch (error: any) {
-      console.error('[Auth] Erro no signIn:', error.message); // Log para depuração
-      throw new Error(error.message); 
+      console.error('[AuthProvider] Erro no signIn:', error.message);
+      throw new Error(error.message);
     } finally {
       setIsLoading(false);
+      console.log('[AuthProvider] signIn concluído, isLoading: false');
     }
   };
 
   const signOut = async () => {
-    setIsLoading(true);
+    console.log('[AuthProvider] Iniciando signOut');
     try {
       await AsyncStorage.removeItem('@InsutecPay:authToken');
       await AsyncStorage.removeItem('@InsutecPay:alunoData');
       setAluno(null);
-      console.log('[Auth] Logout bem-sucedido.');
+      console.log('[AuthProvider] Logout bem-sucedido');
     } catch (e) {
-      console.error("Erro ao fazer logout:", e);
+      console.error('[AuthProvider] Erro ao fazer logout:', e);
     } finally {
       setIsLoading(false);
+      console.log('[AuthProvider] signOut concluído, isLoading: false');
     }
   };
 
   const signUp = async (data: any) => {
-    setIsLoading(true);
+    console.log('[AuthProvider] Iniciando signUp:', data);
     try {
       const { aluno: newAluno, token } = await register(data);
-      
+      setAluno(newAluno);
       await AsyncStorage.setItem('@InsutecPay:alunoData', JSON.stringify(newAluno));
       await AsyncStorage.setItem('@InsutecPay:authToken', token);
-
-      setAluno(newAluno);
-      console.log(`[Auth] Registo bem-sucedido para ${newAluno.nr_estudante}`);
+      console.log(`[AuthProvider] Registro bem-sucedido para ${newAluno.nr_estudante}`);
     } catch (error: any) {
+      console.error('[AuthProvider] Erro no signUp:', error.message);
       throw new Error(error.message);
     } finally {
       setIsLoading(false);
+      console.log('[AuthProvider] signUp concluído, isLoading: false');
     }
   };
 
