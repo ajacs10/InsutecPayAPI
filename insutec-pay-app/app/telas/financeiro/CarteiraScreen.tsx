@@ -1,396 +1,452 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
-import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, Stack } from 'expo-router';
-import { useTheme } from '../ThemeContext/ThemeContext';
-// Assumindo que este ficheiro de estilos está correto
-import { styles, COLORS } from '../../../styles/_Carteira.styles'; 
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  TextInput, 
+  Alert, 
+  ActivityIndicator, 
+  useColorScheme,
+  Animated,
+  Dimensions 
+} from 'react-native';
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { COLORS, sharedStyles } from '../../../styles/_SharedFinance.styles';
+import { carteiraStyles } from '../../../styles/_Carteira.styles';
+import { useFinance } from '../../../components/FinanceContext';
+import { useAuth } from '../../../components/AuthContext';
 import { formatCurrency } from '../../../src/utils/formatters';
 
-interface Cartao {
-    id: string;
-    numero: string;
-    nomeTitular: string;
-    validade: string;
-}
+const { width } = Dimensions.get('window');
 
-const CardAtlantico: React.FC<{
-    cartao: Cartao;
-    isDarkMode: boolean;
-}> = React.memo(({ cartao, isDarkMode }) => {
-    const maskedNumber = '**** **** **** ' + cartao.numero.slice(-4);
-    const titular = cartao.nomeTitular.toUpperCase();
+// --- Componente de Card Atlântico Melhorado ---
+const AtlanticoCard = ({ isDarkMode }: { isDarkMode: boolean }) => {
+  const { aluno } = useAuth();
+  const rotateAnim = useState(new Animated.Value(0))[0];
+  const [isFlipped, setIsFlipped] = useState(false);
 
-    return (
-        <View style={styles.atlanticoCard(isDarkMode)}>
-            <View>
-                <View style={styles.headerCard}>
-                    <Text style={styles.cardLabel}>BANCO MILLENNIUM ATLANTICO</Text>
-                </View>
-                <View style={{ alignItems: 'center', marginTop: 5 }}>
-                    <Text style={styles.cardType}>UNIVERSITÁRIO +</Text>
-                </View>
+  // Obter nome do usuário logado
+  const getUserName = () => {
+    if (aluno?.nome) {
+      const names = aluno.nome.split(' ');
+      if (names.length >= 2) {
+        return `${names[0]} ${names[names.length - 1]}`.toUpperCase();
+      }
+      return aluno.nome.toUpperCase();
+    }
+    return 'JOÃO M. RAMOS'; // Fallback
+  };
+
+  const handleFlip = () => {
+    Animated.spring(rotateAnim, {
+      toValue: isFlipped ? 0 : 1,
+      friction: 8,
+      tension: 10,
+      useNativeDriver: true,
+    }).start();
+    setIsFlipped(!isFlipped);
+  };
+
+  const frontInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  const backInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['180deg', '360deg'],
+  });
+
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={handleFlip}>
+      <Animated.View style={[carteiraStyles.atlanticoCard(isDarkMode), {
+        transform: [{ rotateY: frontInterpolate }]
+      }]}>
+        {/* Frente do Cartão - Layout Correto baseado na imagem */}
+        <View style={carteiraStyles.headerCard}>
+          <View style={carteiraStyles.bankLogoContainer}>
+            <Text style={carteiraStyles.bankName}>INSUTEC  PAY</Text>
+            <View style={carteiraStyles.cardTypeBadge}>
+              <Text style={carteiraStyles.cardTypeText}>UNIVERSITARIO+</Text>
             </View>
-            <Text style={styles.cardNumber}>{maskedNumber}</Text>
-            <View style={styles.footerCard}>
-                <View>
-                    <Text style={styles.footerLabel}>VÁLIDO ATÉ</Text>
-                    <Text style={styles.footerValue}>{cartao.validade}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.footerLabel}>TITULAR</Text>
-                    <Text style={styles.footerValue}>{titular}</Text>
-                </View>
-            </View>
+          </View>
+          <View style={{ width: 24 }} />
         </View>
-    );
-});
+        
+        {/* Número do cartão COM CHIP ao lado (chip à esquerda) */}
+        <View style={carteiraStyles.cardNumberWithChipContainer}>
+          <View style={carteiraStyles.chipContainerHorizontal}>
+            <MaterialIcons name="sim-card" size={32} color={COLORS.white} />
+          </View>
+          <Text style={carteiraStyles.cardNumber}>0000 0000 0000 2002</Text>
+        </View>
+        
+        <View style={carteiraStyles.footerCard}>
+          <View style={carteiraStyles.cardInfo}>
+            <Text style={carteiraStyles.footerLabel}>Titular</Text>
+            <Text style={carteiraStyles.footerValue}>{getUserName()}</Text>
+          </View>
+          <View style={carteiraStyles.cardInfo}>
+            <Text style={carteiraStyles.footerLabel}>Válido até</Text>
+            <Text style={carteiraStyles.footerValue}>05/30</Text>
+          </View>
+          <View style={carteiraStyles.cardLogoContainer}>
+            <MaterialIcons name="contactless" size={28} color={COLORS.white} />
+          </View>
+        </View>
+      </Animated.View>
 
-export default function CarteiraScreen() {
-    const { isDarkMode } = useTheme();
-    const params = useLocalSearchParams();
+      {/* Verso do Cartão (apenas visual) */}
+      <Animated.View style={[carteiraStyles.atlanticoCardBack(isDarkMode), {
+        transform: [{ rotateY: backInterpolate }]
+      }]}>
+        <View style={carteiraStyles.magneticStrip} />
+        <View style={carteiraStyles.cvvContainer}>
+          <Text style={carteiraStyles.cvvLabel}>CVV</Text>
+          <Text style={carteiraStyles.cvvValue}>123</Text>
+        </View>
+        <Text style={carteiraStyles.cardBackText}>
+          Cartão Universitário Atlântico - Para uso no sistema Insutec Pay
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// --- Seção de Saldo Melhorada ---
+const SaldoSection = ({ 
+  isDarkMode, 
+  saldo, 
+  onNavigateToRecibos 
+}: { 
+  isDarkMode: boolean; 
+  saldo: number; 
+  onNavigateToRecibos: () => void 
+}) => {
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={[carteiraStyles.saldoCard(isDarkMode), { opacity: fadeAnim }]}>
+      <View style={carteiraStyles.saldoHeader}>
+        <Ionicons name="wallet-outline" size={24} color={COLORS.primary} />
+        <Text style={carteiraStyles.saldoTitle}>Saldo Disponível</Text>
+      </View>
+      
+      <Text style={carteiraStyles.saldoValue(isDarkMode)}>{formatCurrency(saldo)}</Text>
+      
+      <View style={carteiraStyles.saldoActions}>
+        <TouchableOpacity 
+          style={carteiraStyles.recargaButton} 
+          onPress={() => Alert.alert('Recarga', 'Função de recarga acionada.')}
+        >
+          <View style={carteiraStyles.buttonIconContainer}>
+            <Feather name="plus-circle" size={20} color={COLORS.white} />
+          </View>
+          <Text style={carteiraStyles.recargaButtonText}>Recarregar</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={carteiraStyles.retirarButton} 
+          onPress={() => Alert.alert('Retirar', 'Função de retirada acionada.')}
+        >
+          <View style={carteiraStyles.buttonIconContainer}>
+            <Feather name="minus-circle" size={20} color={COLORS.white} />
+          </View>
+          <Text style={carteiraStyles.retirarButtonText}>Retirar</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <TouchableOpacity 
+        style={carteiraStyles.historyButton(isDarkMode)} 
+        onPress={onNavigateToRecibos}
+      >
+        <Ionicons name="receipt-outline" size={18} color={isDarkMode ? COLORS.textLight : COLORS.textDark} />
+        <Text style={[carteiraStyles.historyButtonText(isDarkMode), { marginLeft: 10 }]}>
+          Ver Histórico de Recibos
+        </Text>
+        <Feather name="chevron-right" size={16} color={COLORS.subText} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// --- Formulário de Adicionar Cartão Melhorado ---
+const AddCardForm = ({ isDarkMode }: { isDarkMode: boolean }) => {
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const formatCardNumber = (text: string) => {
+    const cleaned = text.replace(/\D/g, '');
+    const groups = cleaned.match(/.{1,4}/g);
+    return groups ? groups.join(' ') : '';
+  };
+
+  const handleAddCard = () => {
+    if (!cardNumber || !cardHolder || !expiry || !cvv) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
     
-    // Estado para gerir a transação pendente (pode ser null)
-    const [transacaoPendente, setTransacaoPendente] = useState<{
-        id: string;
-        valor: number;
-        descricao: string;
-    } | null>(null);
-
-    const [saldoCarteira, setSaldoCarteira] = useState(0);
-    const [cartaoPrincipal, setCartaoPrincipal] = useState<Cartao | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isAdding, setIsAdding] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [novoCartao, setNovoCartao] = useState({
-        numero: '',
-        nomeTitular: '',
-        validade: '',
-    });
-
-    // Variáveis derivadas do estado/params
-    const idTransacaoUnica = transacaoPendente?.id;
-    const valorTotal = transacaoPendente?.valor || 0;
-    const descricao = transacaoPendente?.descricao || 'Serviços Institucionais Selecionados';
-
-
-    // 1. Efeito para carregar dados iniciais (saldo e cartão)
-    useEffect(() => {
-        // Mocking: Carregar saldo e cartão ao iniciar
-        const mockCartao: Cartao = {
-            id: '3',
-            numero: '0000000000008652',
-            nomeTitular: 'ANA SOBRINHO',
-            validade: '12/27',
-        };
-        setCartaoPrincipal(mockCartao);
-        const mockSaldo = 5000000.00; // Saldo alto para testes
-        setSaldoCarteira(mockSaldo);
-    }, []);
-    
-    // 2. Efeito CORRIGIDO para carregar a transação dos params (Prevenção de loop)
-    useEffect(() => {
-        const idTransacaoUnicaParam = params.id_transacao_unica as string;
-        const valorTotalParam = parseFloat(params.valor_total as string) || 0; 
-        const descricaoParam = params.descricao as string || 'Serviços Institucionais Selecionados';
-        
-        const novaTransacao = (idTransacaoUnicaParam && valorTotalParam > 0)
-            ? {
-                id: idTransacaoUnicaParam,
-                valor: valorTotalParam,
-                descricao: descricaoParam,
-            }
-            : null;
-            
-        // **PREVENÇÃO DO LOOP INFINITO:** Só atualize o estado se o ID for diferente
-        const currentId = transacaoPendente?.id || null;
-        const newId = novaTransacao?.id || null;
-        
-        if (currentId !== newId) {
-            setTransacaoPendente(novaTransacao);
-            setError(null);
-            
-            if (!novaTransacao) {
-                // Se estiver a limpar a transação (por exemplo, após um pagamento), garante que
-                // não há erro residual do ecrã anterior.
-                setError(null);
-            }
-        }
-        
-        if (!idTransacaoUnicaParam && valorTotalParam > 0) {
-             console.error('[CarteiraScreen] Parâmetros de transação incompletos (Valor sem ID).');
-             setError('Parâmetros de transação incompletos. Por favor, tente novamente.');
-             // setTransacaoPendente(null); // Isto já é coberto pela lógica acima
-        }
-
-    }, [params, transacaoPendente?.id]); // Depende do 'params' e do ID atual do estado
-
-
-    const handleAddCartao = useCallback(() => {
-        if (!novoCartao.numero || !novoCartao.nomeTitular || !novoCartao.validade) {
-            Alert.alert('Erro', 'Por favor, preencha todos os campos do cartão.');
-            return;
-        }
-        if (!/^\d{2}\/\d{2}$/.test(novoCartao.validade)) {
-            Alert.alert('Erro', 'Formato de validade inválido. Use MM/AA (ex: 12/27).');
-            return;
-        }
-
-        const novo: Cartao = {
-            id: `CARTAO-${Date.now()}`,
-            numero: novoCartao.numero,
-            nomeTitular: novoCartao.nomeTitular.toUpperCase(),
-            validade: novoCartao.validade,
-        };
-
-        setCartaoPrincipal(novo);
-        setNovoCartao({ numero: '', nomeTitular: '', validade: '' });
-        setIsAdding(false);
-        Alert.alert('Sucesso', `Novo cartão de ${novo.nomeTitular} registado como principal.`);
-    }, [novoCartao]);
-
-    const handlePagarComCartao = useCallback(() => {
-        console.log('[CarteiraScreen] Pagamento iniciado (handlePagarComCartao chamado).'); 
-        
-        if (!cartaoPrincipal) {
-            setError('Nenhum cartão registrado. Adicione um cartão para prosseguir.');
-            Alert.alert('Erro', 'Nenhum cartão registrado. Adicione um cartão para prosseguir.');
-            return;
-        }
-
-        if (valorTotal <= 0 || !idTransacaoUnica) {
-            console.log('[CarteiraScreen] Validação falhou: Transação ou valor inválido.', { valorTotal, idTransacaoUnica });
-            Alert.alert('Erro', 'Transação inválida ou sem valor a pagar.');
-            return; 
-        }
-
-        if (saldoCarteira < valorTotal) {
-            setError('Saldo insuficiente para completar esta transação.');
-            Alert.alert('Saldo Insuficiente', 'O seu saldo disponível na conta virtual não é suficiente para esta transação.');
-            return;
-        }
-
-        // --- INÍCIO DO FLUXO DE PAGAMENTO ---
-        Alert.alert(
-            'Confirmar Pagamento',
-            `Usar o cartão (Atlântico Universitário+) de ${cartaoPrincipal.nomeTitular} para pagar ${formatCurrency(valorTotal)}?`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Confirmar',
-                    onPress: () => {
-                        setIsLoading(true);
-                        const saldoAnterior = saldoCarteira;
-
-                        // Simulação de transação
-                        setTimeout(() => {
-                            const novoSaldo = saldoCarteira - valorTotal;
-                            
-                            // 1. REDUÇÃO DO SALDO E FIM DO LOADING
-                            setSaldoCarteira(novoSaldo);
-                            setIsLoading(false);
-                            
-                            // 2. LIMPEZA DA TRANSAÇÃO PENDENTE para voltar ao estado "normal" da Carteira
-                            setTransacaoPendente(null);
-                            setError(null);
-                            
-                            // 3. ALERTA DE CONFIRMAÇÃO DO PAGAMENTO
-                            Alert.alert(
-                                '✅ Pagamento Concluído com Sucesso!',
-                                `Pagamento de ${formatCurrency(valorTotal)} para ${descricao} realizado. O seu novo saldo é de ${formatCurrency(novoSaldo)}. Deseja visualizar o comprovativo?`,
-                                [
-                                    { 
-                                        text: 'Voltar', 
-                                        style: 'cancel', 
-                                        onPress: () => {
-                                            // Apenas fechar o alerta e ficar na tela (com saldo atualizado)
-                                            console.log('[CarteiraScreen] Voltando ao estado normal da carteira.');
-                                            // A navegação de volta para a PropinaScreen fica a cargo do utilizador,
-                                            // já que a transação foi concluída.
-                                        }
-                                    },
-                                    {
-                                        text: 'Ver Comprovativo',
-                                        onPress: () => {
-                                            router.replace({ // Usar replace para sair do fluxo de pagamento
-                                                pathname: '/telas/comprovativo/ComprovativoScreen',
-                                                params: {
-                                                    id: idTransacaoUnica,
-                                                    id_transacao_unica: idTransacaoUnica,
-                                                    valor_total: valorTotal.toFixed(2),
-                                                    metodo_pagamento: `Atlântico Universitário+ **** ${cartaoPrincipal.numero.slice(-4)}`,
-                                                    descricao,
-                                                    status: 'SUCESSO',
-                                                    data: new Date().toISOString(),
-                                                    saldo_anterior: saldoAnterior.toFixed(2),
-                                                    saldo_atual: novoSaldo.toFixed(2),
-                                                },
-                                            });
-                                        },
-                                    },
-                                ]
-                            );
-                        }, 1500); // 1.5 segundos de simulação de processamento
-                    },
-                },
-            ]
-        );
-    }, [cartaoPrincipal, saldoCarteira, valorTotal, idTransacaoUnica, descricao]);
-
-    const handleRecarregar = useCallback(() => {
-        Alert.alert('Recarregar Carteira', 'Inicia o fluxo para adicionar fundos (via Referência ou API).');
-    }, []);
-
-    const isPaymentDisabled = isLoading || !cartaoPrincipal || valorTotal <= 0 || saldoCarteira < valorTotal || !transacaoPendente;
-    
-    console.log('[CarteiraScreen] Estado do botão de pagamento:', { 
-        isPaymentDisabled, 
-        isLoading, 
-        cartaoPrincipal: !!cartaoPrincipal,
-        valorTotal, 
-        saldoCarteira, 
-        isSaldoSuficiente: saldoCarteira >= valorTotal,
-        hasTransaction: !!transacaoPendente
-    });
-
-    if (isLoading) {
-        return (
-            <View style={styles.loadingContainer(isDarkMode)}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText(isDarkMode)}>A processar pagamento e gerar comprovativo...</Text>
-            </View>
-        );
+    if (cardNumber.replace(/\s/g, '').length !== 16) {
+      Alert.alert('Erro', 'Número do cartão deve ter 16 dígitos.');
+      return;
     }
 
+    setIsAdding(true);
+    setTimeout(() => {
+      Alert.alert('Sucesso', `Cartão final ${cardNumber.slice(-4)} adicionado com sucesso!`);
+      setCardNumber('');
+      setCardHolder('');
+      setExpiry('');
+      setCvv('');
+      setIsAdding(false);
+      setIsExpanded(false);
+    }, 1500);
+  };
+
+  if (!isExpanded) {
     return (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView style={styles.container(isDarkMode)} contentContainerStyle={{ paddingBottom: 50 }}>
-                <Stack.Screen options={{ title: 'Minha Carteira' }} />
-                <Text style={styles.title(isDarkMode)}>Gestão Financeira</Text>
-
-                {cartaoPrincipal ? (
-                    <CardAtlantico cartao={cartaoPrincipal} isDarkMode={isDarkMode} />
-                ) : (
-                    <Text style={styles.emptyText(isDarkMode)}>Nenhum cartão registado. Adicione um para pagar.</Text>
-                )}
-
-                <View style={styles.saldoCard(isDarkMode)}>
-                    <Text style={styles.saldoLabel}>SALDO DISPONÍVEL (Conta Virtual)</Text>
-                    <Text style={styles.saldoValue(isDarkMode)}>{formatCurrency(saldoCarteira)}</Text>
-                    <View style={styles.saldoActions}>
-                        <TouchableOpacity style={styles.recargaButton} onPress={handleRecarregar}>
-                            <MaterialCommunityIcons name="wallet-plus" size={20} color={COLORS.dark} />
-                            <Text style={styles.recargaButtonText}>Recarregar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.retirarButton}
-                            onPress={() => Alert.alert('Funcionalidade', 'Levantamentos serão implementados após a integração bancária.')}
-                        >
-                            <MaterialCommunityIcons name="bank-transfer-out" size={20} color={COLORS.dark} />
-                            <Text style={styles.retirarButtonText}>Levantar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {transacaoPendente ? (
-                    <View style={styles.detailCard(isDarkMode)}>
-                        <Text style={styles.sectionTitle(isDarkMode)}>Resumo da Transação Pendente</Text>
-                        <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel(isDarkMode)}>Serviço(s):</Text>
-                            <Text style={styles.detailValue(isDarkMode)}>{descricao}</Text>
-                        </View>
-                        <View style={styles.detailItem}>
-                            <Text style={styles.detailLabel(isDarkMode)}>Total a Pagar:</Text>
-                            <Text style={styles.detailValue(isDarkMode)}>{formatCurrency(valorTotal)}</Text>
-                        </View>
-                        {error && <Text style={styles.error(isDarkMode)}>{error}</Text>}
-                        <TouchableOpacity
-                            style={[styles.payButton, isPaymentDisabled ? styles.payButtonDisabled : {}]}
-                            onPress={handlePagarComCartao}
-                            disabled={isPaymentDisabled}
-                        >
-                            <Text style={styles.payButtonText}>
-                                PAGAR {cartaoPrincipal ? `**** ${cartaoPrincipal.numero.slice(-4)}` : ''}
-                            </Text>
-                        </TouchableOpacity>
-                        {saldoCarteira < valorTotal && (
-                            <Text style={{ color: COLORS.danger, textAlign: 'center', marginTop: 10 }}>
-                                Saldo insuficiente para completar esta transação.
-                            </Text>
-                        )}
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={() => {
-                                setTransacaoPendente(null);
-                                setError(null);
-                                router.back(); // Volta para a tela anterior (PropinaScreen ou Checkout)
-                            }}
-                        >
-                             <Text style={styles.cancelButtonText}>Cancelar Transação e Voltar</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.detailCard(isDarkMode)}>
-                        <Text style={styles.sectionTitle(isDarkMode)}>Estado Operacional</Text>
-                        <Text style={styles.emptyText(isDarkMode)}>
-                            Não há transações pendentes para pagamento.
-                        </Text>
-                        <Text style={styles.emptyText(isDarkMode)}>
-                            O seu saldo está disponível para uso ou levantamento.
-                        </Text>
-                    </View>
-                )}
-
-                <View style={styles.section(isDarkMode)}>
-                    <Text style={styles.sectionTitle(isDarkMode)}>
-                        {isAdding ? 'Registar Novo Cartão Multicaixa' : 'Gerenciar Cartões'}
-                    </Text>
-                    {isAdding ? (
-                        <>
-                            <TextInput
-                                style={styles.input(isDarkMode)}
-                                placeholder="Número do Cartão (16 dígitos)"
-                                placeholderTextColor={COLORS.subText}
-                                value={novoCartao.numero}
-                                onChangeText={(text) => setNovoCartao({ ...novoCartao, numero: text })}
-                                keyboardType="numeric"
-                                maxLength={16}
-                            />
-                            <TextInput
-                                style={styles.input(isDarkMode)}
-                                placeholder="Nome do Titular"
-                                placeholderTextColor={COLORS.subText}
-                                value={novoCartao.nomeTitular}
-                                onChangeText={(text) => setNovoCartao({ ...novoCartao, nomeTitular: text })}
-                            />
-                            <TextInput
-                                style={styles.input(isDarkMode)}
-                                placeholder="Validade (MM/AA)"
-                                placeholderTextColor={COLORS.subText}
-                                value={novoCartao.validade}
-                                onChangeText={(text) => setNovoCartao({ ...novoCartao, validade: text })}
-                                maxLength={5}
-                            />
-                            <View style={styles.buttonRow}>
-                                <TouchableOpacity style={styles.button(isDarkMode)} onPress={handleAddCartao}>
-                                    <Text style={styles.buttonText}>Registar Cartão</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.button(isDarkMode), styles.buttonCancel]}
-                                    onPress={() => setIsAdding(false)}
-                                >
-                                    <Text style={styles.buttonText}>Cancelar</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </>
-                    ) : (
-                        <TouchableOpacity style={styles.button(isDarkMode)} onPress={() => setIsAdding(true)}>
-                            <FontAwesome name="credit-card" size={20} color={COLORS.white} style={{ marginRight: 10 }} />
-                            <Text style={styles.buttonText}>Adicionar Novo Cartão</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+      <TouchableOpacity 
+        style={carteiraStyles.addCardTrigger(isDarkMode)}
+        onPress={() => setIsExpanded(true)}
+      >
+        <Feather name="plus-circle" size={24} color={COLORS.primary} />
+        <Text style={carteiraStyles.addCardTriggerText(isDarkMode)}>
+          Adicionar Novo Cartão
+        </Text>
+      </TouchableOpacity>
     );
-}
+  }
+
+  return (
+    <View style={carteiraStyles.section(isDarkMode)}>
+      <View style={carteiraStyles.sectionHeader}>
+        <Text style={sharedStyles.sectionTitle(isDarkMode)}>Adicionar Novo Cartão</Text>
+        <TouchableOpacity onPress={() => setIsExpanded(false)}>
+          <Feather name="x" size={20} color={COLORS.subText} />
+        </TouchableOpacity>
+      </View>
+      
+      <TextInput
+        placeholder="Número do Cartão"
+        placeholderTextColor={COLORS.subText}
+        keyboardType="numeric"
+        maxLength={19}
+        value={formatCardNumber(cardNumber)}
+        onChangeText={(text) => setCardNumber(text.replace(/\s/g, ''))}
+        style={carteiraStyles.input(isDarkMode)}
+      />
+      
+      <TextInput
+        placeholder="Nome no Cartão"
+        placeholderTextColor={COLORS.subText}
+        value={cardHolder}
+        onChangeText={setCardHolder}
+        style={carteiraStyles.input(isDarkMode)}
+      />
+      
+      <View style={carteiraStyles.rowInputs}>
+        <TextInput
+          placeholder="MM/AA"
+          placeholderTextColor={COLORS.subText}
+          maxLength={5}
+          value={expiry}
+          onChangeText={setExpiry}
+          style={[carteiraStyles.input(isDarkMode), { flex: 1, marginRight: 10 }]}
+        />
+        <TextInput
+          placeholder="CVV"
+          placeholderTextColor={COLORS.subText}
+          maxLength={3}
+          secureTextEntry
+          value={cvv}
+          onChangeText={setCvv}
+          style={[carteiraStyles.input(isDarkMode), { flex: 1 }]}
+        />
+      </View>
+      
+      <View style={carteiraStyles.buttonRow}>
+        <TouchableOpacity
+          style={[carteiraStyles.button(isDarkMode), isAdding && sharedStyles.payButtonDisabled]}
+          onPress={handleAddCard}
+          disabled={isAdding}
+        >
+          {isAdding ? (
+            <ActivityIndicator color={COLORS.white} size="small" />
+          ) : (
+            <>
+              <Feather name="credit-card" size={18} color={COLORS.white} />
+              <Text style={carteiraStyles.buttonText}>
+                Adicionar Cartão
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// --- Tela Principal Melhorada ---
+export const CarteiraScreen = () => {
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+  const { saldo, processarPagamento } = useFinance();
+  const { aluno } = useAuth();
+  const params = useLocalSearchParams();
+  const { id_transacao_unica, valor_total, descricao } = params as {
+    id_transacao_unica?: string;
+    valor_total?: string;
+    descricao?: string;
+  };
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const valorTotalNum = parseFloat(valor_total || '0');
+
+  const handlePagar = async () => {
+    if (!id_transacao_unica || !valor_total || !descricao) {
+      Alert.alert('Erro', 'Informações de pagamento incompletas.');
+      return;
+    }
+
+    setIsProcessing(true);
+    const success = await processarPagamento(
+      valorTotalNum,
+      descricao,
+      id_transacao_unica,
+      'Cartão Atlântico Universitário+'
+    );
+
+    setTimeout(() => {
+      setIsProcessing(false);
+      if (success) {
+        router.push({
+          pathname: '/telas/transacao/[id]',
+          params: {
+            id: id_transacao_unica,
+            id_transacao_unica,
+            valor_total,
+            descricao,
+            metodo_pagamento: 'Cartão Atlântico Universitário+',
+            status: 'SUCESSO',
+            data: new Date().toISOString(),
+          },
+        });
+      } else {
+        Alert.alert('Erro', 'Não foi possível processar o pagamento.');
+      }
+    }, 1500);
+  };
+
+  const handleNavigateToRecibos = () => {
+    router.push('/telas/financeiro/RecibosScreen');
+  };
+
+  return (
+    <ScrollView 
+      style={sharedStyles.container(isDarkMode)} 
+      contentContainerStyle={carteiraStyles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={carteiraStyles.header}>
+        <View>
+          <Text style={sharedStyles.title(isDarkMode)}>Minha Carteira</Text>
+          <Text style={carteiraStyles.welcomeText(isDarkMode)}>
+            Olá, {aluno?.nome?.split(' ')[0] || 'Estudante'}!
+          </Text>
+        </View>
+        <TouchableOpacity style={carteiraStyles.settingsButton}>
+          <Feather name="settings" size={20} color={isDarkMode ? COLORS.textLight : COLORS.textDark} />
+        </TouchableOpacity>
+      </View>
+
+      <AtlanticoCard isDarkMode={isDarkMode} />
+      
+      <SaldoSection 
+        isDarkMode={isDarkMode} 
+        saldo={saldo} 
+        onNavigateToRecibos={handleNavigateToRecibos} 
+      />
+
+      {valor_total && (
+        <View style={carteiraStyles.paymentSection(isDarkMode)}>
+          <View style={carteiraStyles.paymentHeader}>
+            <Ionicons name="card-outline" size={20} color={COLORS.primary} />
+            <Text style={sharedStyles.sectionTitle(isDarkMode)}>Confirmar Pagamento</Text>
+          </View>
+          
+          <View style={carteiraStyles.paymentDetails}>
+            <Text style={carteiraStyles.paymentLabel}>Descrição</Text>
+            <Text style={carteiraStyles.paymentValue}>{descricao}</Text>
+            
+            <View style={carteiraStyles.paymentDivider} />
+            
+            <Text style={carteiraStyles.paymentLabel}>Valor Total</Text>
+            <Text style={carteiraStyles.paymentAmount}>{formatCurrency(valorTotalNum)}</Text>
+          </View>
+          
+          <TouchableOpacity
+            style={[carteiraStyles.payButton, isProcessing && sharedStyles.payButtonDisabled]}
+            onPress={handlePagar}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <>
+                <Feather name="credit-card" size={18} color={COLORS.white} />
+                <Text style={carteiraStyles.payButtonText}>
+                  Pagar {formatCurrency(valorTotalNum)}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <AddCardForm isDarkMode={isDarkMode} />
+
+      <View style={carteiraStyles.featuresGrid}>
+        <TouchableOpacity 
+          style={carteiraStyles.featureItem(isDarkMode)}
+          onPress={() => Alert.alert('Segurança', 'Configurações de segurança do cartão.')}
+        >
+          <MaterialIcons name="security" size={24} color={COLORS.primary} />
+          <Text style={carteiraStyles.featureText(isDarkMode)}>Segurança</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={carteiraStyles.featureItem(isDarkMode)}
+          onPress={() => Alert.alert('Bloquear Cartão', 'Função para bloquear o cartão.')}
+        >
+          <Feather name="lock" size={24} color={COLORS.primary} />
+          <Text style={carteiraStyles.featureText(isDarkMode)}>Bloquear Cartão</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={carteiraStyles.featureItem(isDarkMode)}
+          onPress={() => Alert.alert('Alertas', 'Configurar notificações do cartão.')}
+        >
+          <Ionicons name="notifications-outline" size={24} color={COLORS.primary} />
+          <Text style={carteiraStyles.featureText(isDarkMode)}>Alertas</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+export default CarteiraScreen;

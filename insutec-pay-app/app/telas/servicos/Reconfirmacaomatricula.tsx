@@ -1,32 +1,20 @@
-
+// telas/servicos/ReconfirmacaoMatricula.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-
-// Contexto de tema
 import { useTheme } from '../ThemeContext/ThemeContext';
 import { styles, COLORS } from '../../../styles/_Reconfirmacao.styles';
-
-// Interfaces
-interface Servico {
-  id: string;
-  nome: string;
-  icon: string;
-}
+import { formatCurrency } from '../../../src/utils/formatters';
 
 interface PaymentDetails {
-  propinasMensal: number;
   taxaReconfirmacao: number;
-  total: number;
+  totalTaxa: number;
 }
 
-// Constantes
-const TAXA_RECONFIRMACAO = 15000; // 15.000 Kz
-const PROPINAS_MENSAL = 30000; // 30.000 Kz (deve ser obtido via API no futuro)
+const TAXA_RECONFIRMACAO = 15000;
 
-// Componente de cartão de upload
 const UploadCard: React.FC<{
   file: DocumentPicker.DocumentAsset | null;
   onPickDocument: () => Promise<void>;
@@ -66,53 +54,44 @@ const UploadCard: React.FC<{
   );
 };
 
-// Componente de detalhes de pagamento
 const PaymentDetailsCard: React.FC<{
   details: PaymentDetails;
   isDarkMode: boolean;
 }> = ({ details, isDarkMode }) => (
   <View style={styles.card(isDarkMode)}>
-    <Text style={styles.cardTitle(isDarkMode)}>2. Detalhes de Pagamento</Text>
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel(isDarkMode)}>Propina Mensal (Ref.):</Text>
-      <Text style={styles.detailValue(isDarkMode)}>{details.propinasMensal.toLocaleString('pt-AO')} Kz</Text>
-    </View>
+    <Text style={styles.cardTitle(isDarkMode)}>2. Detalhes do Serviço</Text>
     <View style={styles.detailRow}>
       <Text style={[styles.detailLabel(isDarkMode), { fontWeight: '700' }]}>Taxa de Reconfirmação:</Text>
       <Text style={[styles.detailValue(isDarkMode), { color: COLORS.danger, fontWeight: '700' }]}>
-        {details.taxaReconfirmacao.toLocaleString('pt-AO')} Kz
+        {formatCurrency(details.taxaReconfirmacao)}
       </Text>
     </View>
     <View style={styles.divider(isDarkMode)} />
     <View style={styles.detailRow}>
-      <Text style={styles.totalLabel(isDarkMode)}>Total a Pagar:</Text>
-      <Text style={styles.totalValue}>{details.total.toLocaleString('pt-AO')} Kz</Text>
+      <Text style={styles.totalLabel(isDarkMode)}>Valor do Serviço:</Text>
+      <Text style={styles.totalValue}>{formatCurrency(details.totalTaxa)}</Text>
     </View>
+    <Text style={styles.smallText(isDarkMode)}>
+      Nota: A mensalidade da propina deve ser paga separadamente ou será listada como dívida.
+    </Text>
   </View>
 );
 
-/**
- * Componente principal para reconfirmação de matrícula
- */
-export default function Reconfirmacaomatricula() {
+export default function ReconfirmacaoMatricula() {
   const { isDarkMode } = useTheme();
   const params = useLocalSearchParams();
   const [biFile, setBiFile] = useState<DocumentPicker.DocumentAsset | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Dados de pagamento
   const paymentDetails: PaymentDetails = {
-    propinasMensal: PROPINAS_MENSAL,
     taxaReconfirmacao: TAXA_RECONFIRMACAO,
-    total: PROPINAS_MENSAL + TAXA_RECONFIRMACAO,
+    totalTaxa: TAXA_RECONFIRMACAO,
   };
 
-  // Parse do parâmetro de serviço
   const serviceName = React.useMemo(() => {
     try {
       if (params.servico && typeof params.servico === 'string') {
-        const parsed = JSON.parse(params.servico) as Servico;
-        console.log('[Reconfirmacaomatricula] Nome do serviço:', parsed.nome);
+        const parsed = JSON.parse(params.servico) as { nome: string };
         return parsed.nome || 'Reconfirmação de Matrícula';
       }
     } catch (error) {
@@ -121,9 +100,6 @@ export default function Reconfirmacaomatricula() {
     return 'Reconfirmação de Matrícula';
   }, [params.servico]);
 
-  /**
-   * Seleciona o ficheiro de BI (PDF ou Imagem)
-   */
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -146,9 +122,6 @@ export default function Reconfirmacaomatricula() {
     }
   };
 
-  /**
-   * Processa a reconfirmação e redireciona para pagamento
-   */
   const handleConfirmarMatricula = () => {
     if (!biFile) {
       Alert.alert('Ficheiro em Falta', 'Por favor, carregue a cópia do BI (PDF ou Imagem) antes de continuar.');
@@ -158,53 +131,30 @@ export default function Reconfirmacaomatricula() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      Alert.alert(
-        'Submissão Concluída',
-        `Documento de BI enviado. O pagamento de ${paymentDetails.total.toLocaleString('pt-AO')} Kz será processado.`,
-        [
-          {
-            text: 'Ir para Pagamento',
-            onPress: () => {
-              console.log('[Reconfirmacaomatricula] Redirecionando para DividasScreen');
-              router.push({
-                pathname: '/telas/dividas/DividasScreen',
-                params: {
-                  servicosAdicionais: JSON.stringify([
-                    {
-                      descricao: 'Reconfirmação de Matrícula',
-                      valor_total: paymentDetails.total,
-                    },
-                  ]),
-                },
-              });
-            },
-          },
-        ]
-      );
-    }, 2000); // Simula um atraso de 2 segundos
+      const transacaoId = `RECONF-${Date.now()}`;
+      router.push({
+        pathname: '/telas/financeiro/CarteiraScreen',
+        params: {
+          id_transacao_unica: transacaoId,
+          valor_total: paymentDetails.totalTaxa.toFixed(2),
+          descricao: 'Taxa de Reconfirmação de Matrícula',
+        },
+      });
+    }, 2000);
   };
-
-  useEffect(() => {
-    console.log('[Reconfirmacaomatricula] Componente montado, serviceName:', serviceName);
-  }, [serviceName]);
 
   return (
     <View style={styles.container(isDarkMode)}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.header(isDarkMode)}>{serviceName}</Text>
         <Text style={styles.description(isDarkMode)}>
-          Para reconfirmar a sua matrícula, é obrigatório submeter a cópia do <Text style={{ fontWeight: '700' }}>BI</Text> e efetuar o pagamento de um mês de mensalidade mais a taxa de reconfirmação.
+          Para reconfirmar a sua matrícula, é obrigatório submeter a cópia do <Text style={{ fontWeight: '700' }}>BI</Text> e efetuar o pagamento da <Text style={{ fontWeight: '700' }}>Taxa de Reconfirmação.</Text>
         </Text>
         <Text style={styles.description(isDarkMode)}>
-          A taxa de reconfirmação é de <Text style={{ fontWeight: '700' }}>{TAXA_RECONFIRMACAO.toLocaleString('pt-AO')} Kz</Text>.
+          A Taxa de Reconfirmação é de <Text style={{ fontWeight: '700' }}>{formatCurrency(TAXA_RECONFIRMACAO)}</Text> e será processada na próxima tela.
         </Text>
 
-        <UploadCard
-          file={biFile}
-          onPickDocument={handlePickDocument}
-          isDarkMode={isDarkMode}
-          isLoading={isLoading}
-        />
+        <UploadCard file={biFile} onPickDocument={handlePickDocument} isDarkMode={isDarkMode} isLoading={isLoading} />
         <PaymentDetailsCard details={paymentDetails} isDarkMode={isDarkMode} />
 
         <TouchableOpacity
@@ -216,12 +166,12 @@ export default function Reconfirmacaomatricula() {
           {isLoading ? (
             <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
-            <Text style={styles.confirmButtonText}>Confirmar</Text>
+            <Text style={styles.confirmButtonText}>Confirmar e Pagar</Text>
           )}
         </TouchableOpacity>
 
         <Text style={styles.noteText(isDarkMode)}>
-          Ao confirmar, o BI será submetido e o pagamento total de {paymentDetails.total.toLocaleString('pt-AO')} Kz será processado.
+          Ao confirmar, o BI será submetido e o pagamento de {formatCurrency(paymentDetails.totalTaxa)} será processado na tela seguinte.
         </Text>
       </ScrollView>
     </View>

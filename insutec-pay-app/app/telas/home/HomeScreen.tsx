@@ -1,382 +1,448 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// app/telas/home/HomeScreen.tsx
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-  Easing,
-  SafeAreaView,
-  Dimensions,
-  StatusBar,
-  Image,
-  ActivityIndicator, // Adicionado para o loading screen de segurança
-  // 🚀 CORREÇÃO PRINCIPAL: Importação do Platform para usar useNativeDriver
-  Platform, 
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    SafeAreaView,
+    Dimensions,
+    StatusBar,
+    Image,
+    ActivityIndicator,
+    Animated,
+    Easing,
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-// Assumindo que este ficheiro de estilos está correto
+import { useFinance } from '../../../components/FinanceContext';
 import { styles, COLORS } from '../../../styles/_HomeStyles';
 import { formatCurrency } from '../../../src/utils/formatters';
+import { Servico } from '../../../src/types';
 
-// Caminho para a imagem do logo
 const LOGO_IMAGE = require('../../../assets/images/logo.png');
-
-// --- TIPAGENS E CONSTANTES ---
-interface Servico {
-  id: string;
-  nome: string;
-  icon: any;
-  isMenu?: boolean;
-  isDestructive?: boolean;
-}
-
-// Mocks e Rotas (SIMULANDO O SEU services.ts)
-const getDashboardData = () => ({
-  saldoDisponivel: 150000.0,
-  dividasPendentes: 0,
-  totalDivida: 0.0,
-});
-
 const FALLBACK_PAGAMENTO_PATH = '/telas/ServicoPagamento/ServicoPagamentoScreen';
 
-// 1. Definição Completa de Rotas
+// Rotas Diretas Mapeadas
 const SERVICO_ROTAS_DIRETAS: { [key: string]: string } = {
-  Propina: '/telas/servicos/Propina',
-  'Taxa de Inscrição': '/telas/servicos/TaxaInscricao',
-  'Declaração com Notas': '/telas/servicos/DeclaracaoNota',
-  'Declaração sem Notas': '/telas/servicos/DeclaracaoSemNota',
-  'Folha de Prova': '/telas/servicos/FolhadeProva',
-  'Reconfirmação de Matrícula': '/telas/servicos/Reconfirmacaomatricula',
-  'Pagar Agora': '/telas/ServicoPagamento/ServicoPagamentoScreen',
-  Perfil: '/telas/perfil/PerfilScreen',
-  Histórico: '/telas/historico/HistoricoScreen',
-  'Leitor QR': '/telas/qrcode/QRCodeReader',
-  Ajuda: '/telas/ajuda/AjudaScreen',
-  Carteira: '/telas/financeiro/CarteiraScreen',
-  Comprovativo: '/telas/comprovativo/ComprovativoScreen',
+    Propina: '/telas/servicos/Propina',
+    'Declaração com Notas': '/telas/servicos/DeclaracaoNota',
+    'Declaração sem Notas': '/telas/servicos/DeclaracaoSemNota',
+    'Folha de Prova': '/telas/servicos/FolhadeProva',
+    'Reconfirmação de Matrícula': '/telas/servicos/Reconfirmacaumatricula',
+    Perfil: '/telas/perfil/PerfilScreen',
+    Histórico: '/telas/historico/HistoricoScreen',
+    Carteira: '/telas/financeiro/CarteiraScreen',
+    Comprovativo: '/telas/comprovativo/ComprovativoScreen',
+    'Sobre o App': '/telas/sobre/SobreScreen',
+    'Contactar Suporte': '/telas/suporte/SuporteScreen',
+    Ajuda: '/telas/verAjuda/verAjudaScreen', 
+    Logout: '/telas/login/LoginScreen',
 };
 
-// MOCK: Serviços que aparecem no Menu Lateral
+// Menu Lateral
 const SERVICOS_MENU_LATERAL: Servico[] = [
-  { id: '1', nome: 'Propina', icon: 'money', isMenu: true },
-  { id: '2', nome: 'Taxa de Inscrição', icon: 'vcard-o', isMenu: true },
-  { id: '3', nome: 'Reconfirmação de Matrícula', icon: 'calendar-check-o', isMenu: true },
-  { id: '4', nome: 'Carteira', icon: 'credit-card', isMenu: true },
-  { id: '5', nome: 'Histórico', icon: 'history', isMenu: true },
-  { id: '6', nome: 'Comprovativo', icon: 'file-text-o', isMenu: true },
-  { id: '7', nome: 'Perfil', icon: 'user', isMenu: true },
-  { id: '8', nome: 'Ajuda', icon: 'support', isMenu: true },
-  { id: '99', nome: 'Logout', icon: 'sign-out', isMenu: true, isDestructive: true },
+    { id: '1', nome: 'Propina', icon: 'money', isMenu: true },
+    { id: '3', nome: 'Reconfirmação de Matrícula', icon: 'calendar-check-o', isMenu: true },
+    { id: '4', nome: 'Carteira', icon: 'credit-card', isMenu: true },
+    { id: '5', nome: 'Histórico', icon: 'history', isMenu: true },
+    { id: '6', nome: 'Comprovativo', icon: 'file-text-o', isMenu: true },
+    { id: '7', nome: 'Perfil', icon: 'user', isMenu: true },
+    { id: '8', nome: 'Ajuda', icon: 'support', isMenu: true },
+    { id: '10', nome: 'Sobre o App', icon: 'info-circle', isMenu: true },
+    { id: '11', nome: 'Contactar Suporte', icon: 'phone', isMenu: true },
+    { id: '99', nome: 'Logout', icon: 'sign-out', isMenu: true, isDestructive: true },
 ];
 
-// MOCK: Serviços de Destaque no ecrã principal
 const SERVICOS_DESTAQUE: Servico[] = [
-  { id: '1', nome: 'Propina', icon: 'money' },
-  { id: '2', nome: 'Taxa de Inscrição', icon: 'vcard-o' },
-  { id: '3', nome: 'Declaração com Notas', icon: 'file-text' },
-  { id: '4', nome: 'Folha de Prova', icon: 'book' },
+    { id: '1', nome: 'Propina', icon: 'money' },
+    { id: '2', nome: 'Declaração com Notas', icon: 'file-text' },
+    { id: '3', nome: 'Declaração sem Notas', icon: 'file-o' },
+    { id: '4', nome: 'Folha de Prova', icon: 'book' },
 ];
 
-// 2. Definição dos Atalhos Rápidos
-const ATALHOS_RAPIDOS = [
-  { id: '5', name: 'Comprovativo', icon: 'file-text-o', route: SERVICO_ROTAS_DIRETAS['Comprovativo'] || '' },
-  { id: '4', name: 'Carteira', icon: 'credit-card', route: SERVICO_ROTAS_DIRETAS['Carteira'] || '' },
-  { id: '1', name: 'Histórico', icon: 'history', route: SERVICO_ROTAS_DIRETAS['Histórico'] || '' },
-  { id: '2', name: 'Leitor QR', icon: 'qrcode', route: SERVICO_ROTAS_DIRETAS['Leitor QR'] || '' },
-  { id: '3', name: 'Ajuda', icon: 'support', route: SERVICO_ROTAS_DIRETAS['Ajuda'] || '' },
-];
-
+// --- FUNÇÕES AUXILIARES ---
+const getInitials = (name: string | undefined): string => {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase();
+};
 
 // --- COMPONENTES AUXILIARES ---
-
-const ServiceCard: React.FC<{ servico: Servico; onPress: (servico: Servico) => void; isDarkMode: boolean }> =
-  React.memo(({ servico, onPress, isDarkMode }) => (
-    <TouchableOpacity style={styles.card(isDarkMode)} onPress={() => onPress(servico)} activeOpacity={0.7}>
-      <View style={styles.cardIconContainer(isDarkMode)}>
-        <FontAwesome name={servico.icon} size={28} color={COLORS.primary} />
-      </View>
-      <Text style={styles.cardTitle(isDarkMode)} numberOfLines={1}>{servico.nome}</Text>
-    </TouchableOpacity>
-  ));
-
-const QuickAccessCard: React.FC<{ icon: string; name: string; onPress: () => void; isDarkMode: boolean }> =
-  React.memo(({ icon, name, onPress, isDarkMode }) => (
-    <TouchableOpacity style={styles.quickAccessCard(isDarkMode)} onPress={onPress} activeOpacity={0.7}>
-      <FontAwesome name={icon} size={22} color={COLORS.primary} />
-      <Text style={styles.quickAccessText(isDarkMode)} numberOfLines={1}>{name}</Text>
-    </TouchableOpacity>
-  ));
-
-const Sidebar: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onServicoPress: (servico: Servico) => void;
-  logout: () => Promise<void>;
-  isDarkMode: boolean;
-}> = ({ isOpen, onClose, onServicoPress, logout, isDarkMode }) => {
-  const { aluno } = useAuth();
-  const windowWidth = Dimensions.get('window').width;
-  const SIDEBAR_WIDTH = windowWidth * 0.75;
-  const rightOffset = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-
-  useEffect(() => {
-    console.log('[Sidebar] Estado da Sidebar:', { isOpen });
-    Animated.timing(rightOffset, {
-      toValue: isOpen ? 0 : -SIDEBAR_WIDTH,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      // Esta linha agora está correta
-      useNativeDriver: Platform.OS !== 'web', 
-    }).start();
-  }, [isOpen, rightOffset, SIDEBAR_WIDTH]);
-
-  const handleLogout = useCallback(async () => {
-    console.log('[Sidebar] Iniciando logout');
-    try {
-      await logout();
-      onClose();
-    } catch (error) {
-      console.error('[Sidebar] Erro no logout:', error);
-    }
-  }, [logout, onClose]);
-
-  const renderItem = (servico: Servico) => (
-    <TouchableOpacity
-      key={servico.id}
-      style={styles.sidebarItem(isDarkMode)}
-      onPress={() => {
-        console.log('[Sidebar] Item clicado:', servico.nome);
-        if (servico.nome === 'Logout') {
-          handleLogout();
-        } else {
-          onServicoPress(servico);
-        }
-      }}
-      activeOpacity={0.6}
-    >
-      <FontAwesome
-        name={servico.icon}
-        size={20}
-        color={servico.nome === 'Logout' ? COLORS.danger : styles.sidebarText(isDarkMode).color}
-        style={{ width: 30 }}
-      />
-      <Text
-        style={[styles.sidebarText(isDarkMode), servico.nome === 'Logout' && { color: COLORS.danger }]}
-      >
-        {servico.nome}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <>
-      {isOpen && (
+const ServiceListItem: React.FC<{ servico: Servico; onPress: (servico: Servico) => void; isDarkMode: boolean }> =
+    React.memo(({ servico, onPress, isDarkMode }) => (
         <TouchableOpacity
-          style={styles.sidebarOverlay}
-          onPress={onClose}
-          activeOpacity={1}
-        />
-      )}
-      <Animated.View style={[styles.sidebar(isDarkMode, SIDEBAR_WIDTH), { transform: [{ translateX: rightOffset }] }]}>
-        <View style={styles.sidebarHeader(isDarkMode)}>
-          <FontAwesome name="user-circle" size={40} color={COLORS.primary} />
-          <Text style={styles.sidebarHeaderText(isDarkMode)} numberOfLines={1}>
-            {aluno?.nome || 'Utilizador'}
-          </Text>
-          <Text style={styles.sidebarHeaderSubtitle(isDarkMode)}>{aluno?.nr_estudante || 'Sem ID'}</Text>
+            style={styles.serviceListItem({ isDarkMode })}
+            onPress={() => onPress(servico)}
+            activeOpacity={0.7}
+        >
+            <View style={styles.serviceListIconContainer({ isDarkMode })}>
+                <FontAwesome name={servico.icon} size={24} color={COLORS.accent} />
+            </View>
+            <Text style={styles.serviceListTitle({ isDarkMode })} numberOfLines={1}>{servico.nome}</Text>
+            <Ionicons name="chevron-forward" size={20} color={isDarkMode ? COLORS.subText : COLORS.gray} />
+        </TouchableOpacity>
+    ));
+
+const MenuOptions: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const handleAction = (action: string) => {
+        let pathKey: string = '';
+        if (action === 'Histórico') {
+            pathKey = 'Histórico';
+        } else if (action === 'Regulamento') {
+            pathKey = 'Sobre o App';
+        } else if (action === 'Ajuda') {
+            pathKey = 'Ajuda';
+        }
+
+        if (pathKey && SERVICO_ROTAS_DIRETAS[pathKey]) {
+            router.push(SERVICO_ROTAS_DIRETAS[pathKey]);
+        }
+        onClose();
+    };
+
+    return (
+        <View style={styles.menuContainer}>
+            {['Histórico', 'Regulamento', 'Ajuda'].map((action, index) => (
+                <TouchableOpacity
+                    key={action}
+                    style={[styles.menuItem, index === 2 && styles.lastMenuItem]}
+                    onPress={() => handleAction(action)}
+                >
+                    <Ionicons 
+                        name={
+                            action === 'Histórico' 
+                            ? 'time-outline' 
+                            : action === 'Regulamento' 
+                            ? 'document-text-outline' 
+                            : 'help-circle-outline'
+                        } 
+                        size={20} 
+                        color={COLORS.primary} 
+                    />
+                    <Text style={styles.menuItemText}>Ver {action === 'Regulamento' ? 'Regulamento' : action}</Text>
+                </TouchableOpacity>
+            ))}
         </View>
-        <ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-          {/* Renderiza todos os itens do menu lateral, exceto Logout */}
-          {SERVICOS_MENU_LATERAL.filter((s) => s.nome !== 'Logout').map(renderItem)}
-          <View style={styles.sidebarFooter}>
-            {/* Renderiza o item Logout separadamente no footer */}
-            {SERVICOS_MENU_LATERAL.filter((s) => s.nome === 'Logout').map(renderItem)}
-          </View>
-        </ScrollView>
-      </Animated.View>
-    </>
-  );
+    );
+};
+
+// CORREÇÃO CRÍTICA: Sidebar como componente separado com hooks próprios
+const SidebarContent: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onServicoPress: (servico: Servico) => void;
+    logout: () => Promise<void>;
+    isDarkMode: boolean;
+    services: Servico[];
+}> = ({ isOpen, onClose, onServicoPress, logout, isDarkMode, services }) => {
+    // HOOKS DO SIDEBAR - separados do HomeScreen
+    const { aluno } = useAuth();
+    const windowWidth = Dimensions.get('window').width;
+    const SIDEBAR_WIDTH = windowWidth * 0.75;
+    
+    const leftOffset = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+
+    useEffect(() => {
+        Animated.timing(leftOffset, {
+            toValue: isOpen ? 0 : -SIDEBAR_WIDTH,
+            duration: 300,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+        }).start();
+    }, [isOpen, leftOffset, SIDEBAR_WIDTH]);
+
+    const handleLogout = useCallback(async () => {
+        try {
+            await logout();
+            onClose();
+        } catch (error) {
+            console.error('[Sidebar] Erro no logout:', error);
+        }
+    }, [logout, onClose]);
+
+    const renderItem = useCallback(
+        (servico: Servico) => (
+            <TouchableOpacity
+                key={servico.id}
+                style={styles.sidebarItem({ isDarkMode })}
+                onPress={() => (servico.nome === 'Logout' ? handleLogout() : onServicoPress(servico))}
+                activeOpacity={0.6}
+            >
+                <FontAwesome
+                    name={servico.icon}
+                    size={20}
+                    color={servico.nome === 'Logout' ? COLORS.danger : styles.sidebarText({ isDarkMode }).color}
+                    style={{ width: 30 }}
+                />
+                <Text
+                    style={[styles.sidebarText({ isDarkMode }), servico.nome === 'Logout' && { color: COLORS.danger }]}
+                >
+                    {servico.nome}
+                </Text>
+            </TouchableOpacity>
+        ),
+        [isDarkMode, handleLogout, onServicoPress]
+    );
+
+    return (
+        <>
+            {isOpen && (
+                <TouchableOpacity
+                    style={styles.sidebarOverlay}
+                    onPress={onClose}
+                    activeOpacity={1}
+                />
+            )}
+            <Animated.View style={[styles.sidebar({ isDarkMode, width: SIDEBAR_WIDTH }), { transform: [{ translateX: leftOffset }] }]}>
+                <View style={styles.sidebarHeader({ isDarkMode })}>
+                    <View style={styles.sidebarAvatar({ isDarkMode })}>
+                        <Text style={styles.sidebarAvatarText({ isDarkMode })}>{getInitials(aluno?.nome)}</Text>
+                    </View>
+                    <Text style={styles.sidebarHeaderText({ isDarkMode })} numberOfLines={1}>
+                        {aluno?.nome || 'Utilizador'}
+                    </Text>
+                    <Text style={styles.sidebarHeaderSubtitle({ isDarkMode })}>{aluno?.nr_estudante || 'Sem ID'}</Text>
+                </View>
+                
+                <ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
+                    {services.filter((s) => s.nome !== 'Logout').map(renderItem)}
+                    <View style={styles.sidebarFooter}>
+                        {services.filter((s) => s.nome === 'Logout').map(renderItem)}
+                    </View>
+                </ScrollView>
+            </Animated.View>
+        </>
+    );
 };
 
 // --- TELA PRINCIPAL: HomeScreen ---
-
 export default function HomeScreen() {
-  const { aluno, signOut: logout } = useAuth();
-  const { isDarkMode, toggleTheme } = useTheme();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const pathname = usePathname();
-  const dashboardData = getDashboardData();
+    // TODOS OS HOOKS PRIMEIRO - SEM NENHUM RETORNO ANTECIPADO
+    const { aluno, signOut: logout } = useAuth();
+    const { isDarkMode } = useTheme(); 
+    const { saldo } = useFinance();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const pathname = usePathname();
 
-  useEffect(() => {
-    console.log('[HomeScreen] Carregada, aluno:', aluno?.nr_estudante);
-    setIsSidebarOpen(false); // Garante que a sidebar esteja fechada
-  }, [pathname, aluno]);
+    // Efeitos após todos os hooks
+    useEffect(() => {
+        setIsSidebarOpen(false);
+        setShowMenu(false);
+        
+        // Verificação de autenticação sem retorno antecipado
+        if (aluno === undefined) {
+            setIsLoading(true);
+            return;
+        }
+        
+        if (!aluno) {
+            const timer = setTimeout(() => {
+                router.replace('/telas/login/LoginScreen');
+            }, 0);
+            setIsLoading(false);
+            return () => clearTimeout(timer);
+        }
+        
+        setIsLoading(false);
+    }, [aluno, pathname]);
 
-  // 🚀 Lógica de Segurança movida para o useEffect
-  useEffect(() => {
-    // Redireciona o utilizador não autenticado após o componente montar
-    if (aluno === undefined) return; // Não faz nada se ainda não carregou o AuthContext
+    // Handlers - sempre depois dos hooks
+    const toggleSidebar = useCallback(() => {
+        setIsSidebarOpen((prev) => !prev);
+        setShowMenu(false); 
+    }, []);
 
-    if (!aluno) {
-      console.log('[HomeScreen] Nenhum aluno autenticado, redirecionando para LoginScreen');
-      // Usa setTimeout para garantir que a navegação ocorre após a renderização
-      const timer = setTimeout(() => {
-        router.replace('/telas/login/LoginScreen');
-      }, 0); 
-      return () => clearTimeout(timer);
-    }
-  }, [aluno]); // Depende apenas do estado do aluno
+    const toggleMenu = useCallback(() => {
+        setShowMenu((prev) => !prev);
+        setIsSidebarOpen(false); 
+    }, []);
 
-  const toggleSidebar = useCallback(() => {
-    console.log('[HomeScreen] Alternando sidebar, estado atual:', !isSidebarOpen);
-    setIsSidebarOpen((prev) => !prev);
-  }, [isSidebarOpen]);
+    const handleMainServicoPress = useCallback((servico: Servico) => {
+        const targetPath = SERVICO_ROTAS_DIRETAS[servico.nome];
+        if (targetPath) {
+            router.push({
+                pathname: targetPath,
+                params: { servico: JSON.stringify(servico) },
+            });
+        } else {
+            router.push(FALLBACK_PAGAMENTO_PATH);
+        }
+        setIsSidebarOpen(false);
+        setShowMenu(false);
+    }, []);
 
-  const handleServicoPress = useCallback(async (servico: Servico) => {
-    console.log('[HomeScreen] Serviço pressionado:', servico.nome);
-    setIsSidebarOpen(false);
-    
-    if (servico.nome === 'Logout') {
-      console.log('[HomeScreen] Acionando logout');
-      await logout();
-      return;
-    }
-    
-    const targetPath = SERVICO_ROTAS_DIRETAS[servico.nome];
-    
-    if (targetPath) {
-      console.log('[HomeScreen] Navegando para:', targetPath);
-      router.push({
-        pathname: targetPath,
-        params: { servico: JSON.stringify(servico) },
-      });
-    } else {
-      console.log('[HomeScreen] Navegando para fallback:', FALLBACK_PAGAMENTO_PATH);
-      router.push(FALLBACK_PAGAMENTO_PATH);
-    }
-  }, [logout]);
+    const handleSidebarServicoPress = useCallback((servico: Servico) => {
+        setIsSidebarOpen(false);
+        const targetPath = SERVICO_ROTAS_DIRETAS[servico.nome];
+        if (targetPath) {
+            router.push({
+                pathname: targetPath,
+                params: { servico: JSON.stringify(servico) },
+            });
+        } else {
+            router.push(FALLBACK_PAGAMENTO_PATH);
+        }
+    }, []);
 
-  const handleQuickAccessPress = useCallback((route: string) => {
-    console.log('[HomeScreen] Atalho rápido pressionado:', route);
-    setIsSidebarOpen(false);
-    if (route) {
-      router.push(route);
-    }
-  }, []);
+    // Dados processados APÓS hooks
+    const firstName = aluno?.nome?.split(' ')[0] || 'Utilizador';
+    const currentDate = new Date().toLocaleString('pt-AO', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
 
-  const handlePagarAgoraPress = useCallback(() => {
-    console.log('[HomeScreen] Botão Pagar Agora pressionado');
-    setIsSidebarOpen(false);
-    router.push(SERVICO_ROTAS_DIRETAS['Propina']); // Redireciona para o serviço mais comum
-  }, []);
-
-  // Fallback de segurança: Mostra um loading enquanto o redirecionamento ocorre
-  if (!aluno) {
-    return (
-        <View style={{ flex: 1, backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={{ color: isDarkMode ? COLORS.textLight : COLORS.dark, marginTop: 10 }}>
-                A verificar autenticação...
-            </Text>
-        </View>
+    const memoizedStyles = useMemo(
+        () => ({
+            header: styles.header({ isDarkMode }),
+            safeArea: styles.safeArea({ isDarkMode }),
+            contentContainer: styles.contentContainer({ isDarkMode }),
+            saldoContainer: styles.saldoContainer({ isDarkMode }),
+            sectionContainer: styles.sectionContainer({ isDarkMode }),
+            serviceListContainer: styles.serviceListContainer({ isDarkMode }),
+            bottomNavBar: styles.bottomNavBar({ isDarkMode }),
+        }),
+        [isDarkMode]
     );
-  }
 
-  // O componente principal é renderizado APENAS se o aluno for válido
-  return (
-    <SafeAreaView style={styles.safeArea(isDarkMode)}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? COLORS.darkBackground : COLORS.lightBackground}
-      />
-      <View style={styles.header(isDarkMode)}>
-        <View style={styles.logoAndGreetingContainer}>
-          <View style={styles.logoContainer}>
-            <Image source={LOGO_IMAGE} style={styles.logoImage} resizeMode="contain" />
-          </View>
-          <Text style={styles.greetingText(isDarkMode)} numberOfLines={1}>
-            Olá, {aluno?.nome?.split(' ')[0] || 'Estudante'}!
-          </Text>
-        </View>
-        <View style={styles.headerRightButtons}>
-          <TouchableOpacity onPress={toggleTheme} style={styles.headerButton}>
-            <Ionicons
-              name={isDarkMode ? 'sunny' : 'moon'}
-              size={26}
-              color={styles.sectionTitle(isDarkMode).color}
+    // CORREÇÃO: Loading state como parte normal do render
+    if (isLoading || !aluno) {
+        return (
+            <View style={{ 
+                flex: 1, 
+                backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground, 
+                justifyContent: 'center', 
+                alignItems: 'center' 
+            }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ 
+                    color: isDarkMode ? COLORS.textLight : COLORS.textDark, 
+                    marginTop: 10 
+                }}>
+                    {isLoading ? 'A verificar autenticação...' : 'Redirecionando para login...'}
+                </Text>
+            </View>
+        );
+    }
+
+    // RENDER PRINCIPAL - APÓS TODOS OS HOOKS E VERIFICAÇÕES
+    return (
+        <SafeAreaView style={memoizedStyles.safeArea}>
+            <StatusBar
+                barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+                backgroundColor="transparent"
+                translucent={true} 
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={toggleSidebar}
-            style={styles.headerButton}
-          >
-            <Ionicons name="menu" size={30} color={styles.sectionTitle(isDarkMode).color} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <ScrollView contentContainerStyle={styles.contentContainer(isDarkMode)} showsVerticalScrollIndicator={false}>
-        
-        {/* --- Saldo e Botão Pagar --- */}
-        <View style={styles.saldoContainer(isDarkMode)}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.saldoTitle(isDarkMode)}>Saldo Disponível</Text>
-            <Ionicons name="eye-off-outline" size={20} color={isDarkMode ? COLORS.subText : COLORS.gray} />
-          </View>
-          <Text style={styles.saldoValue(isDarkMode)}>{formatCurrency(dashboardData.saldoDisponivel)}</Text>
-          <TouchableOpacity style={styles.payButton(isDarkMode)} onPress={handlePagarAgoraPress}>
-            <Text style={styles.payButtonText(isDarkMode)}>Pagar Propina e Taxas</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* --- Serviços em Destaque --- */}
-        <View style={styles.sectionContainer(isDarkMode)}>
-          <Text style={styles.sectionTitle(isDarkMode)}>Acesso Rápido a Serviços</Text>
-          <View style={styles.highlightServicesGrid}>
-            {SERVICOS_DESTAQUE.slice(0, 3).map((servico) => (
-              <ServiceCard
-                key={servico.id}
-                servico={servico}
-                onPress={handleServicoPress}
+            
+            {/* Header */}
+            <View style={[
+                memoizedStyles.header, 
+                styles.headerAndroidPadding 
+            ]}>
+                <View style={styles.logoAndGreetingContainer}>
+                    <View style={styles.logoContainer}>
+                        <Image source={LOGO_IMAGE} style={styles.logoImage} resizeMode="contain" />
+                    </View>
+                    
+                    <View>
+                        <Text style={styles.appGreeting({ isDarkMode })} numberOfLines={1}>
+                            Olá, {firstName}
+                        </Text>
+                        <Text style={styles.dateText({ isDarkMode })} numberOfLines={1}>
+                            INSU TEC PAY | {currentDate}
+                        </Text>
+                    </View>
+                </View>
+                <View style={styles.headerRightButtons}>
+                    <TouchableOpacity onPress={toggleSidebar} style={styles.headerButton}>
+                        <Ionicons name="menu" size={30} color={styles.sectionTitle({ isDarkMode }).color} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={toggleMenu} style={styles.headerButton}>
+                        <Ionicons name="ellipsis-vertical-outline" size={30} color={styles.sectionTitle({ isDarkMode }).color} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {showMenu && <MenuOptions onClose={toggleMenu} />}
+            
+            <ScrollView 
+                style={{ flex: 1, backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground }} 
+                contentContainerStyle={memoizedStyles.contentContainer} 
+                showsVerticalScrollIndicator={false}
+            >
+                
+                {/* Saldo/Wallet */}
+                <View style={memoizedStyles.saldoContainer}>
+                    <Text style={styles.paymentSubtitle({ isDarkMode })}>Pagamento de Serviços Universitários</Text>
+                    <View style={styles.balanceHeader}>
+                        <Text style={styles.saldoTitle({ isDarkMode })}>Saldo Disponível</Text>
+                        <Ionicons name="eye-off-outline" size={20} color={isDarkMode ? COLORS.subText : COLORS.gray} />
+                    </View>
+                    <Text style={styles.saldoValue({ isDarkMode })}>{formatCurrency(saldo)}</Text>
+                    <TouchableOpacity 
+                        style={styles.payButton({ isDarkMode })} 
+                        onPress={() => handleMainServicoPress(SERVICOS_DESTAQUE[0])}
+                    >
+                        <Text style={styles.payButtonText({ isDarkMode })}>Pagar Propina</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Serviços Essenciais */}
+                <View style={memoizedStyles.sectionContainer}>
+                    <Text style={styles.sectionTitle({ isDarkMode })}>Serviços Essenciais</Text>
+                    <View style={memoizedStyles.serviceListContainer}>
+                        {SERVICOS_DESTAQUE.map((servico) => (
+                            <ServiceListItem
+                                key={servico.id}
+                                servico={servico}
+                                onPress={handleMainServicoPress}
+                                isDarkMode={isDarkMode}
+                            />
+                        ))}
+                    </View>
+                </View>
+                
+                <View style={{ height: 80 }} />
+            </ScrollView>
+
+            {/* Navegação Inferior */}
+            <View style={memoizedStyles.bottomNavBar}>
+                <TouchableOpacity style={styles.navBarItem} onPress={() => router.push('/telas/home/HomeScreen')}>
+                    <Ionicons name="home" size={26} color={COLORS.primary} />
+                    <Text style={[styles.navBarText({ isDarkMode }), { color: COLORS.primary }]}>Home</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navBarItem} onPress={() => handleMainServicoPress(SERVICOS_MENU_LATERAL[2])}>
+                    <Ionicons name="wallet-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
+                    <Text style={styles.navBarText({ isDarkMode })}>Carteira</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navBarItem} onPress={() => handleMainServicoPress(SERVICOS_MENU_LATERAL[5])}>
+                    <Ionicons name="person-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
+                    <Text style={styles.navBarText({ isDarkMode })}>Perfil</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navBarItem} onPress={() => handleMainServicoPress(SERVICOS_MENU_LATERAL[3])}>
+                    <Ionicons name="time-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
+                    <Text style={styles.navBarText({ isDarkMode })}>Histórico</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Sidebar - Componente separado com hooks próprios */}
+            <SidebarContent
+                isOpen={isSidebarOpen}
+                onClose={toggleSidebar}
+                onServicoPress={handleSidebarServicoPress}
+                logout={logout}
                 isDarkMode={isDarkMode}
-              />
-            ))}
-          </View>
-        </View>
-        
-        {/* --- Outros Atalhos (Horizontal) --- */}
-        <View style={styles.sectionContainer(isDarkMode)}>
-          <Text style={styles.sectionTitle(isDarkMode)}>Outros Atalhos</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickAccessScrollContainer}
-          >
-            {ATALHOS_RAPIDOS.map((atalho) => (
-              <QuickAccessCard
-                key={atalho.id}
-                icon={atalho.icon}
-                name={atalho.name}
-                onPress={() => handleQuickAccessPress(atalho.route)}
-                isDarkMode={isDarkMode}
-              />
-            ))}
-          </ScrollView>
-        </View>
-        
-      </ScrollView>
-      
-      {/* --- Sidebar --- */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={toggleSidebar}
-        onServicoPress={handleServicoPress}
-        logout={logout}
-        isDarkMode={isDarkMode}
-      />
-    </SafeAreaView>
-  );
+                services={SERVICOS_MENU_LATERAL}
+            />
+        </SafeAreaView>
+    );
 }

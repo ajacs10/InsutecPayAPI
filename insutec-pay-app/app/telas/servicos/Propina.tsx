@@ -1,6 +1,6 @@
-
+// telas/servicos/PropinaScreen.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
@@ -10,7 +10,6 @@ import { propinaStyles as styles } from '../../../styles/_Propina.styles';
 import { COLORS } from '../../../styles/_ServicoStyles.style';
 import { formatCurrency } from '../../../src/utils/formatters';
 
-// Mock ajustado para verificar pagamento por mês
 const checkPaymentStatus = async (studentId: string, months: string[]): Promise<{ [key: string]: boolean }> => {
   console.log('[PropinaScreen] Verificando status de pagamento para:', studentId, months);
   const paidMonths = ['Novembro', 'Dezembro'];
@@ -83,7 +82,6 @@ export default function PropinaScreen() {
   const handlePagarComCartao = useCallback(async () => {
     if (!targetStudentId || !selectedAno || selectedMonths.length === 0 || getSubtotal === 0) {
       setError('Por favor, verifique se selecionou o estudante, o ano e pelo menos um mês.');
-      console.log('[PropinaScreen] Validação falhou:', { targetStudentId, selectedAno, selectedMonths, getSubtotal });
       Alert.alert('Erro', 'Por favor, verifique se selecionou o estudante, o ano e pelo menos um mês.');
       return;
     }
@@ -91,35 +89,32 @@ export default function PropinaScreen() {
     setLoading(true);
     try {
       const paymentStatus = await checkPaymentStatus(targetStudentId, selectedMonths);
-      console.log('[PropinaScreen] Status de pagamento:', paymentStatus);
       const paidMonths = selectedMonths.filter((month) => paymentStatus[month]);
       const unpaidMonths = selectedMonths.filter((month) => !paymentStatus[month]);
       const transacaoId = `PROPINA-${targetStudentId}-${Date.now()}`;
       const mesesDescricao = selectedMonths.join(', ');
 
       if (paidMonths.length > 0) {
-        const message = paidMonths.length === selectedMonths.length
-          ? `Os meses ${paidMonths.join(', ')} já foram pagos. Deseja visualizar o comprovativo?`
-          : `Os meses ${paidMonths.join(', ')} já foram pagos. Deseja visualizar o comprovativo ou continuar com o pagamento de ${unpaidMonths.join(', ')}?`;
+        const message =
+          paidMonths.length === selectedMonths.length
+            ? `Os meses ${paidMonths.join(', ')} já foram pagos. Deseja visualizar o comprovativo?`
+            : `Os meses ${paidMonths.join(', ')} já foram pagos. Deseja visualizar o comprovativo ou continuar com o pagamento de ${unpaidMonths.join(', ')}?`;
 
         const buttons = [
           { text: 'Cancelar', style: 'cancel' },
           {
             text: 'Ver Comprovativo',
             onPress: () => {
-              console.log('[PropinaScreen] Navegando para ComprovativoScreen');
               router.push({
-                pathname: '/telas/comprovativo/ComprovativoScreen',
+                pathname: '/telas/transacao/[id]',
                 params: {
                   id: transacaoId,
                   id_transacao_unica: transacaoId,
                   valor_total: (MONTHLY_FEE * paidMonths.length).toFixed(2),
-                  metodo_pagamento: 'Cartão Atlântico Universitário+',
                   descricao: `Pagamento de Propina: ${paidMonths.join(', ')} (${selectedAno}º Ano)`,
+                  metodo_pagamento: 'Cartão Atlântico Universitário+',
                   status: 'SUCESSO',
                   data: new Date().toISOString(),
-                  saldo_anterior: '0.00',
-                  saldo_atual: '0.00',
                 },
               });
             },
@@ -130,7 +125,6 @@ export default function PropinaScreen() {
           buttons.push({
             text: 'Pagar Restantes',
             onPress: () => {
-              console.log('[PropinaScreen] Navegando para CarteiraScreen para meses não pagos:', unpaidMonths);
               router.push({
                 pathname: '/telas/financeiro/CarteiraScreen',
                 params: {
@@ -145,7 +139,6 @@ export default function PropinaScreen() {
 
         Alert.alert('Status do Pagamento', message, buttons);
       } else {
-        console.log('[PropinaScreen] Navegando para CarteiraScreen para processar pagamento:', selectedMonths);
         router.push({
           pathname: '/telas/financeiro/CarteiraScreen',
           params: {
@@ -157,26 +150,28 @@ export default function PropinaScreen() {
       }
     } catch (e) {
       setError('Erro ao processar o pagamento.');
-      console.error('[PropinaScreen] Erro no handlePagarComCartao:', e);
       Alert.alert('Erro', 'Não foi possível verificar o status do pagamento.');
     } finally {
       setLoading(false);
     }
   }, [targetStudentId, selectedAno, selectedMonths, getSubtotal]);
 
-  const renderMonthItem = useCallback(({ item }: { item: string }) => {
-    const isSelected = selectedMonths.includes(item);
-    return (
-      <TouchableOpacity
-        style={[styles.monthButton(isDarkMode), isSelected && styles.monthButtonSelected(isDarkMode)]}
-        onPress={() => toggleMonth(item)}
-      >
-        <Text style={[styles.monthButtonText(isDarkMode), isSelected && styles.monthButtonTextSelected(isDarkMode)]}>
-          {item}
-        </Text>
-      </TouchableOpacity>
-    );
-  }, [isDarkMode, selectedMonths, toggleMonth]);
+  const renderMonthItem = useCallback(
+    ({ item }: { item: string }) => {
+      const isSelected = selectedMonths.includes(item);
+      return (
+        <TouchableOpacity
+          style={[styles.monthButton(isDarkMode), isSelected && styles.monthButtonSelected(isDarkMode)]}
+          onPress={() => toggleMonth(item)}
+        >
+          <Text style={[styles.monthButtonText(isDarkMode), isSelected && styles.monthButtonTextSelected(isDarkMode)]}>
+            {item}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [isDarkMode, selectedMonths, toggleMonth]
+  );
 
   if (loading && !owedMonths.length) {
     return (

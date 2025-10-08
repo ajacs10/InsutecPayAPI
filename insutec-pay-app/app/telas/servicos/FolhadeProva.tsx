@@ -1,32 +1,26 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, ActivityIndicator } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  TextInput, 
+  Alert, 
+  ActivityIndicator,
+  Dimensions,
+  StyleSheet 
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-import { styles, COLORS } from '../../../styles/_ServicoStyles.style.ts';
+import { COLORS } from '../../../styles/_ServicoStyles.style.ts';
 import { formatCurrency } from '../../../src/utils/formatters';
 
 // Constantes
 const SERVICE_TITLE = 'Solicitação de Folha de Prova';
-const BASE_PRICE = 200; // Kwanza por item
-
-// Mock de Tipos de Prova/Contexto
-const EXAM_OPTIONS = [
-  { nome: 'Selecione o Contexto (Ex: Recurso)', id: '', data_vencimento: '', valor: 0 },
-  { nome: 'Cópia de Folha de Exame (Normal)', valor: BASE_PRICE, id: 'FOLHA_NORMAL', data_vencimento: '2025-12-31' },
-  { nome: 'Cópia de Folha de Exame (Recurso)', valor: BASE_PRICE, id: 'FOLHA_RECURSO', data_vencimento: '2025-11-30' },
-  { nome: 'Revisão de Prova (Extra)', valor: BASE_PRICE + 500, id: 'FOLHA_EXTRA', data_vencimento: '2025-10-31' },
-];
-
-// Interface para os itens do pedido
-interface PedidoItem {
-  id: string;
-  descricao: string;
-  valor: number;
-  data_vencimento: string;
-}
+const PRICE = 200;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function FolhaDeProvaScreen() {
   const { aluno } = useAuth();
@@ -34,26 +28,19 @@ export default function FolhaDeProvaScreen() {
 
   // Estados
   const [numeroEstudante, setNumeroEstudante] = useState(aluno?.nr_estudante || '');
-  const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [disciplinaNome, setDisciplinaNome] = useState('');
-  const [currentPedidoItems, setCurrentPedidoItems] = useState<PedidoItem[]>([]);
+  const [quantidade, setQuantidade] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Memoização
   const targetStudentId = useMemo(() => numeroEstudante || aluno?.nr_estudante || '', [numeroEstudante, aluno]);
-  const selectedExam = useMemo(() => EXAM_OPTIONS.find((opt) => opt.id === selectedExamId) || EXAM_OPTIONS[0], [selectedExamId]);
-  const totalPedido = useMemo(() => currentPedidoItems.reduce((sum, item) => sum + item.valor, 0), [currentPedidoItems]);
+  const total = useMemo(() => PRICE * quantidade, [quantidade]);
 
-  // Adicionar item ao pedido
-  const handleAddItem = () => {
-    console.log('[FolhaDeProva] Tentando adicionar item:', { targetStudentId, selectedExamId, disciplinaNome });
+  // Adicionar ao pedido
+  const handleAddToOrder = () => {
     if (!targetStudentId) {
       setError('Por favor, insira o número do estudante.');
-      return;
-    }
-    if (!selectedExamId) {
-      setError('Selecione o tipo de prova.');
       return;
     }
     if (!disciplinaNome.trim()) {
@@ -61,182 +48,465 @@ export default function FolhaDeProvaScreen() {
       return;
     }
 
-    const novoItem: PedidoItem = {
-      id: `FOLHA-${selectedExamId}-${disciplinaNome.toUpperCase()}-${Date.now()}`,
-      descricao: `${selectedExam.nome}: ${disciplinaNome.trim()}`,
-      valor: selectedExam.valor,
-      data_vencimento: selectedExam.data_vencimento,
+    // Criar item único do pedido
+    const pedidoItem = {
+      id: `FOLHA-${Date.now()}`,
+      descricao: `Folha de Prova: ${disciplinaNome.trim()} (${quantidade} unidade${quantidade > 1 ? 's' : ''})`,
+      valor: total,
+      data_vencimento: '2025-12-31',
+      quantidade: quantidade
     };
 
-    setCurrentPedidoItems((prev) => [...prev, novoItem]);
-    console.log('[FolhaDeProva] Item adicionado:', novoItem);
-
-    // Resetar formulário
-    setSelectedExamId('');
-    setDisciplinaNome('');
-    setError(null);
+    // Ir direto para pagamento com o item único
+    handleProceedToPayment(pedidoItem);
   };
 
-  // Remover item do pedido
-  const handleRemoveItem = (id: string) => {
-    console.log('[FolhaDeProva] Removendo item:', id);
-    setCurrentPedidoItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Enviar para DividasScreen
-  const handleSendToDividas = () => {
-    if (currentPedidoItems.length === 0) {
-      setError('Adicione pelo menos um item à sua lista de pedidos.');
-      return;
-    }
-
+  // Ir para pagamento
+  const handleProceedToPayment = (item: any) => {
     setIsLoading(true);
-    console.log('[FolhaDeProva] Enviando para DividasScreen:', { items: currentPedidoItems, alunoId: targetStudentId });
-
-    // Mapear os itens para o formato Divida
-    const dividasDoPedido = currentPedidoItems.map((item) => ({
-      id: item.id,
-      descricao: item.descricao,
-      valor_base: item.valor,
-      valor_total: item.valor,
-      data_vencimento: item.data_vencimento,
-    }));
-
-    // Simula um atraso para processamento
+    
     setTimeout(() => {
       setIsLoading(false);
       router.push({
-        pathname: '/telas/dividas/DividasScreen',
+        pathname: '/telas/ServicoPagamento/ServicoPagamentoScreen',
         params: {
-          servicosAdicionais: JSON.stringify(dividasDoPedido),
+          servicos: JSON.stringify([item]),
           alunoId: targetStudentId,
+          tipoServico: 'FOLHA_PROVA'
         },
       });
-      console.log('[FolhaDeProva] Redirecionado para DividasScreen');
     }, 1000);
   };
 
+  // Aumentar quantidade
+  const increaseQuantity = () => {
+    setQuantidade(prev => prev + 1);
+  };
+
+  // Diminuir quantidade
+  const decreaseQuantity = () => {
+    if (quantidade > 1) {
+      setQuantidade(prev => prev - 1);
+    }
+  };
+
+  // Estilos inline para evitar problemas de importação
+  const styles = {
+    container: {
+      flex: 1,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 100,
+    },
+    header: {
+      alignItems: 'center',
+      padding: 24,
+      paddingTop: 40,
+    },
+    headerIcon: {
+      width: 70,
+      height: 70,
+      borderRadius: 35,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+      backgroundColor: COLORS.warning + '20',
+    },
+    mainTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      marginBottom: 8,
+    },
+    subTitle: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: isDarkMode ? COLORS.subText : COLORS.gray,
+      lineHeight: 22,
+    },
+    infoCard: {
+      backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.white,
+      margin: 16,
+      padding: 16,
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    infoText: {
+      fontSize: 14,
+      marginLeft: 12,
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      flex: 1,
+    },
+    section: {
+      marginHorizontal: 16,
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      marginBottom: 16,
+    },
+    studentInfoCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.white,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDarkMode ? COLORS.gray : '#E0E0E0',
+    },
+    studentInput: {
+      flex: 1,
+      marginLeft: 12,
+      fontSize: 16,
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    disciplinaInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.white,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDarkMode ? COLORS.gray : '#E0E0E0',
+      marginBottom: 20,
+    },
+    disciplinaInput: {
+      flex: 1,
+      marginLeft: 12,
+      fontSize: 16,
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    quantitySection: {
+      marginBottom: 20,
+    },
+    quantityLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      marginBottom: 12,
+    },
+    quantitySelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quantityButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: isDarkMode ? COLORS.cardBackground : '#f0f0f0',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    quantityDisplay: {
+      width: 60,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: COLORS.primary,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.white,
+    },
+    quantityText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    orderSummaryCard: {
+      backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.white,
+      padding: 20,
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    summaryTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      marginBottom: 16,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    summaryLabel: {
+      fontSize: 14,
+      color: isDarkMode ? COLORS.subText : COLORS.gray,
+    },
+    summaryValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: COLORS.gray + '40',
+      marginVertical: 12,
+    },
+    totalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    totalLabel: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    totalPrice: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: COLORS.primary,
+    },
+    errorContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: COLORS.danger + '20',
+      padding: 12,
+      borderRadius: 8,
+      marginHorizontal: 16,
+      marginBottom: 16,
+    },
+    errorText: {
+      color: COLORS.danger,
+      marginLeft: 8,
+      fontSize: 14,
+      flex: 1,
+    },
+    spacer: {
+      height: 20,
+    },
+    fixedButtonContainer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'transparent',
+      padding: 16,
+      paddingBottom: 24,
+    },
+    continueButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
+      backgroundColor: (targetStudentId && disciplinaNome.trim()) ? COLORS.primary : COLORS.gray,
+      opacity: (targetStudentId && disciplinaNome.trim()) ? 1 : 0.6,
+    },
+    continueButtonText: {
+      color: COLORS.white,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginLeft: 8,
+    },
+  };
+
   return (
-    <ScrollView style={styles.container(isDarkMode)} contentContainerStyle={{ paddingBottom: 50 }}>
-      <Text style={styles.sectionTitle(isDarkMode)}>{SERVICE_TITLE}</Text>
+    <View style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerIcon}>
+            <MaterialIcons name="assignment" size={32} color={COLORS.warning} />
+          </View>
+          <Text style={styles.mainTitle}>{SERVICE_TITLE}</Text>
+          <Text style={styles.subTitle}>
+            Solicite sua folha de prova de forma rápida e segura
+          </Text>
+        </View>
 
-      {/* Input Número do Estudante */}
-      <View style={styles.inputContainer(isDarkMode)}>
-        <Text style={styles.label(isDarkMode)}>Número do Estudante</Text>
-        <TextInput
-          style={styles.input(isDarkMode)}
-          value={numeroEstudante}
-          onChangeText={setNumeroEstudante}
-          placeholder="Digite o número do estudante"
-          keyboardType="numeric"
-          placeholderTextColor={isDarkMode ? COLORS.gray : COLORS.lightGray}
-        />
-      </View>
-
-      {/* Seção de Adicionar Item */}
-      <View style={styles.sectionContainer(isDarkMode)}>
-        <Text style={styles.label(isDarkMode)}>1. Detalhes da Folha ({formatCurrency(selectedExam.valor)})</Text>
-
-        {/* Tipo de Prova Picker */}
-        <View style={styles.inputContainer(isDarkMode)}>
-          <Text style={styles.label(isDarkMode)}>Tipo de Serviço/Contexto</Text>
-          <View style={styles.picker(isDarkMode)}>
-            <Picker
-              selectedValue={selectedExamId}
-              onValueChange={(itemValue) => {
-                console.log('[FolhaDeProva] Tipo de prova selecionado:', itemValue);
-                setSelectedExamId(itemValue as string);
-              }}
-              style={{ color: isDarkMode ? COLORS.white : COLORS.textDark }}
-            >
-              {EXAM_OPTIONS.map((opt) => (
-                <Picker.Item
-                  key={opt.id}
-                  label={`${opt.nome} ${opt.valor > 0 ? `(${formatCurrency(opt.valor)})` : ''}`}
-                  value={opt.id}
-                />
-              ))}
-            </Picker>
+        {/* Card de Informações */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="info" size={20} color={COLORS.primary} />
+            <Text style={styles.infoText}>
+              Preço fixo por folha: {formatCurrency(PRICE)}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="schedule" size={20} color={COLORS.primary} />
+            <Text style={styles.infoText}>
+              Processamento: 24-48 horas
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MaterialIcons name="description" size={20} color={COLORS.primary} />
+            <Text style={styles.infoText}>
+              Formato: Digital (PDF)
+            </Text>
           </View>
         </View>
 
-        {/* Nome da Disciplina */}
-        {selectedExamId !== '' && (
-          <View style={styles.inputContainer(isDarkMode)}>
-            <Text style={styles.label(isDarkMode)}>Nome da Disciplina</Text>
+        {/* Informações do Estudante */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Informações do Estudante</Text>
+          <View style={styles.studentInfoCard}>
+            <MaterialIcons name="school" size={20} color={COLORS.primary} />
             <TextInput
-              style={styles.input(isDarkMode)}
-              value={disciplinaNome}
-              onChangeText={setDisciplinaNome}
-              placeholder="Ex: Matemática Aplicada"
-              placeholderTextColor={isDarkMode ? COLORS.gray : COLORS.lightGray}
+              style={styles.studentInput}
+              value={numeroEstudante}
+              onChangeText={(text) => {
+                setNumeroEstudante(text);
+                setError(null);
+              }}
+              placeholder="Número do estudante"
+              keyboardType="numeric"
+              placeholderTextColor={isDarkMode ? COLORS.gray : '#999'}
             />
           </View>
+        </View>
+
+        {/* Detalhes da Disciplina */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Detalhes da Solicitação</Text>
+          
+          <View style={styles.disciplinaInputContainer}>
+            <MaterialIcons name="menu-book" size={20} color={COLORS.primary} />
+            <TextInput
+              style={styles.disciplinaInput}
+              value={disciplinaNome}
+              onChangeText={(text) => {
+                setDisciplinaNome(text);
+                setError(null);
+              }}
+              placeholder="Nome da disciplina (ex: Matemática Aplicada)"
+              placeholderTextColor={isDarkMode ? COLORS.gray : '#999'}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Seletor de Quantidade */}
+          <View style={styles.quantitySection}>
+            <Text style={styles.quantityLabel}>Quantidade de Folhas:</Text>
+            <View style={styles.quantitySelector}>
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={decreaseQuantity}
+                disabled={quantidade <= 1}
+              >
+                <MaterialIcons 
+                  name="remove" 
+                  size={20} 
+                  color={quantidade <= 1 ? COLORS.gray : COLORS.primary} 
+                />
+              </TouchableOpacity>
+              
+              <View style={styles.quantityDisplay}>
+                <Text style={styles.quantityText}>
+                  {quantidade}
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={increaseQuantity}
+              >
+                <MaterialIcons name="add" size={20} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Resumo do Pedido */}
+          <View style={styles.orderSummaryCard}>
+            <Text style={styles.summaryTitle}>Resumo do Pedido</Text>
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Folha de Prova:</Text>
+              <Text style={styles.summaryValue}>
+                {disciplinaNome || 'Nome da disciplina'}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Quantidade:</Text>
+              <Text style={styles.summaryValue}>{quantidade}</Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Preço unitário:</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(PRICE)}</Text>
+            </View>
+            
+            <View style={styles.divider} />
+            
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total:</Text>
+              <Text style={styles.totalPrice}>{formatCurrency(total)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Mensagem de Erro */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={20} color={COLORS.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         )}
 
-        {/* Botão Adicionar Item */}
+        {/* Espaço para o botão fixo */}
+        <View style={styles.spacer} />
+      </ScrollView>
+
+      {/* Botão Fixo de Continuar */}
+      <View style={styles.fixedButtonContainer}>
         <TouchableOpacity
-          style={[
-            styles.payButton,
-            styles.secondaryButton,
-            (!selectedExamId || !disciplinaNome.trim()) && styles.payButtonDisabled,
-          ]}
-          onPress={handleAddItem}
-          disabled={!selectedExamId || !disciplinaNome.trim()}
+          style={styles.continueButton}
+          onPress={handleAddToOrder}
+          disabled={!targetStudentId || !disciplinaNome.trim() || isLoading}
           activeOpacity={0.8}
         >
-          <Text style={styles.payButtonText}>
-            Adicionar ao Pedido <FontAwesome name="plus-circle" size={16} color={COLORS.white} />
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color={COLORS.white} size="small" />
+          ) : (
+            <>
+              <MaterialIcons name="arrow-forward" size={20} color={COLORS.white} />
+              <Text style={styles.continueButtonText}>
+                Continuar para Pagamento - {formatCurrency(total)}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
-
-      {/* Lista de Itens Adicionados */}
-      {currentPedidoItems.length > 0 && (
-        <View style={[styles.sectionContainer(isDarkMode), { marginTop: 20 }]}>
-          <Text style={styles.sectionTitle(isDarkMode)}>2. Resumo do Pedido ({currentPedidoItems.length} Itens)</Text>
-          <FlatList
-            data={currentPedidoItems}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.itemSummaryCard(isDarkMode)}>
-                <Text style={styles.itemSummaryText(isDarkMode)}>{item.descricao}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.itemSummaryValue(isDarkMode)}>{formatCurrency(item.valor)}</Text>
-                  <TouchableOpacity onPress={() => handleRemoveItem(item.id)} style={{ marginLeft: 10 }}>
-                    <FontAwesome name="trash" size={18} color={COLORS.warning} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          />
-          <Text style={[styles.totalText(isDarkMode), { marginTop: 15 }]}>
-            TOTAL GERAL: {formatCurrency(totalPedido)}
-          </Text>
-        </View>
-      )}
-
-      {/* Mensagem de Erro */}
-      {error && (
-        <Text style={styles.error(isDarkMode)}>{error}</Text>
-      )}
-
-      {/* Botão Continuar para Pagamento */}
-      <TouchableOpacity
-        style={[styles.payButton, currentPedidoItems.length === 0 && styles.payButtonDisabled]}
-        onPress={handleSendToDividas}
-        disabled={currentPedidoItems.length === 0 || isLoading}
-        activeOpacity={0.8}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={COLORS.white} size="small" />
-        ) : (
-          <Text style={styles.payButtonText}>
-            Continuar para Pagamento ({currentPedidoItems.length} Itens){' '}
-            <FontAwesome name="arrow-right" size={16} color={COLORS.white} />
-          </Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }

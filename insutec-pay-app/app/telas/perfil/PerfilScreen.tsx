@@ -1,118 +1,114 @@
-
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert, Switch, ScrollView } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-// Contextos
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Dimensions,
+  Switch,
+} from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-
-// Estilos e Cores
 import { styles, COLORS } from '../../../styles/_Perfil.styles';
 
 export default function PerfilScreen() {
-  const { aluno, signOut: logout } = useAuth();
+  // TODOS OS HOOKS PRIMEIRO
+  // Removido: 'signOut' de useAuth
+  const { aluno, userToken } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  // Removido: 'isLoggingOut' e seu estado
+  const windowWidth = Dimensions.get('window').width;
 
-  // Função auxiliar para obter as iniciais do nome para o Avatar
+  // Debug: Log the current state
+  useEffect(() => {
+    console.log('[PerfilScreen] Estado atual:', {
+      hasAluno: !!aluno,
+      hasToken: !!userToken,
+      aluno: aluno?.nr_estudante
+    });
+  }, [aluno, userToken]);
+
+  // Get initials for avatar
   const getInitials = (name: string | undefined): string => {
     if (!name) return '?';
     const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return parts[0][0].toUpperCase();
+    return parts.length >= 2 ?
+      (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() :
+      parts[0][0].toUpperCase();
   };
 
-  // Confirmação e execução do Logout
-  const handleLogout = () => {
-    Alert.alert(
-      'Terminar Sessão',
-      'Tem certeza que deseja sair da sua conta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/telas/login');
-              console.log('[PerfilScreen] Logout realizado com sucesso.');
-            } catch (error) {
-              console.error('[PerfilScreen] Erro ao fazer logout:', error);
-              Alert.alert('Erro', 'Falha ao terminar a sessão.');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
-  };
+  // Removido: A função 'handleLogout' inteira, incluindo o useCallback e o Alert.
 
-  if (!aluno) {
-    console.log('[PerfilScreen] Aluno não encontrado, redirecionando para login.');
-    return (
-      <View style={styles.container(isDarkMode)}>
-        <Text style={styles.errorText(isDarkMode)}>Erro: Dados do aluno não carregados.</Text>
-        <TouchableOpacity
-          onPress={() => router.replace('/telas/login')}
-          style={styles.linkButton(isDarkMode)}
-        >
-          <Text style={styles.linkText(isDarkMode)}>Ir para Login</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // CORREÇÃO: Removida a verificação condicional que causava problemas
+  // Se não há aluno, o AuthProvider já deve redirecionar automaticamente
 
-  console.log('[PerfilScreen] Renderizando perfil para:', aluno.nr_estudante);
+  console.log('[PerfilScreen] Renderizando perfil para:', aluno?.nr_estudante);
 
   return (
-    <View style={styles.container(isDarkMode)}>
+    <View style={styles.fullScreenContainer(isDarkMode)}>
       <ScrollView
-        style={{ flex: 1, width: '100%' }}
+        style={styles.scrollContentWrapper(isDarkMode)}
         contentContainerStyle={{
           alignItems: 'center',
           paddingBottom: 30,
           paddingTop: 10,
           flexGrow: 1,
+          paddingHorizontal: 10,
         }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
+        {/* Avatar e Informações Pessoais */}
         <View style={styles.profileCard(isDarkMode)}>
           <View style={styles.avatar(isDarkMode)}>
-            <Text style={styles.avatarText(isDarkMode)}>{getInitials(aluno.nome)}</Text>
+            <Text style={styles.avatarText(isDarkMode)}>
+              {getInitials(aluno?.nome)}
+            </Text>
           </View>
-          <Text style={styles.nameText(isDarkMode)}>{aluno.nome}</Text>
-          <Text style={styles.studentNumberText(isDarkMode)}>
-            Nº de Estudante: {aluno.nr_estudante}
+          <Text style={styles.nameText(isDarkMode)} numberOfLines={1}>
+            {aluno?.nome || 'Utilizador'}
+          </Text>
+          <Text style={styles.studentNumberText(isDarkMode)} numberOfLines={1}>
+            Nº de Estudante: {aluno?.nr_estudante || 'N/A'}
           </Text>
           <View style={styles.infoBlock(isDarkMode)}>
             <Text style={styles.infoTitle(isDarkMode)}>Informação de Contacto</Text>
             <Text style={styles.infoDetail(isDarkMode)}>
-              Email: {aluno.nr_estudante}@insutec.co.ao
+              Email: {aluno?.nr_estudante}@insutec.co.ao
             </Text>
-            <Text style={styles.infoDetail(isDarkMode)}>Curso: Engenharia Informática</Text>
+            <Text style={styles.infoDetail(isDarkMode)}>
+              Curso: Engenharia Informática
+            </Text>
           </View>
         </View>
 
+        {/* Toggle Modo Escuro */}
         <View style={styles.toggleContainer(isDarkMode)}>
-          <Text style={styles.label(isDarkMode)}>Modo Escuro</Text>
+          <View style={styles.toggleLabelContainer}>
+            <Text style={styles.label(isDarkMode)}>Modo Escuro</Text>
+            <Ionicons
+              name={isDarkMode ? 'moon' : 'sunny'}
+              size={16}
+              color={isDarkMode ? COLORS.textLight : COLORS.textDark}
+            />
+          </View>
           <Switch
             onValueChange={toggleTheme}
             value={isDarkMode}
-            trackColor={{ false: '#CCCCCC', true: COLORS.primaryDark }}
+            trackColor={{ false: '#CCCCCC', true: COLORS.primary }}
             thumbColor={isDarkMode ? COLORS.accent : COLORS.white}
+            ios_backgroundColor="#CCCCCC"
           />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton(isDarkMode)} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText(isDarkMode)}>Terminar Sessão</Text>
-        </TouchableOpacity>
+        {/* O espaço que continha o botão de Logout foi removido. */}
 
+        {/* Status de Segurança */}
         <View style={styles.statusContainer(isDarkMode)}>
-          <FontAwesome name="check-circle" size={16} color={COLORS.primary} />
-          <Text style={styles.statusText(isDarkMode)}>Sessão segura e autenticada.</Text>
+          <FontAwesome name="check-circle" size={16} color={COLORS.success} />
+          <Text style={styles.statusText(isDarkMode)}>
+            Sessão ativa e autenticada.
+          </Text>
         </View>
       </ScrollView>
     </View>
