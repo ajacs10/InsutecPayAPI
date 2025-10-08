@@ -14,7 +14,8 @@ import { useAuth } from '../../../components/AuthContext';
 // Importa o tipo PagamentoTransacao da sua estrutura de tipos
 import { getHistoricoTransacoes } from '../../../src/api/InsutecPayAPI'; 
 import { PagamentoTransacao } from '../../../src/types'; 
-import { styles, COLORS } from '../../../styles/_Historico.styles';
+// Supondo que você tem um arquivo de estilos:
+import { styles, COLORS } from '../../../styles/_Historico.styles'; 
 
 // ====================================================================
 // Componente individual para renderizar uma transação na lista
@@ -93,6 +94,7 @@ const useHistorico = (alunoId: number | undefined) => {
             const response = await getHistoricoTransacoes(alunoId);
             setTransacoes(response);
         } catch (err: any) {
+            // Se o erro for 404/Network, o mock será exibido, mas o erro será notificado.
             setError(err.message || "Não foi possível carregar o histórico de transações.");
             Alert.alert("Erro de Carga", err.message || "Erro desconhecido ao carregar histórico.");
         } finally {
@@ -101,7 +103,6 @@ const useHistorico = (alunoId: number | undefined) => {
     }, [alunoId]);
 
     // Usa useFocusEffect para recarregar os dados sempre que o ecrã ganha foco
-    // Isso garante que o histórico é atualizado se o utilizador fizer um pagamento
     useFocusEffect(
         useCallback(() => {
             fetchHistorico();
@@ -119,8 +120,7 @@ export default function HistoricoScreen() {
     const { aluno } = useAuth();
     const alunoId = aluno?.id;
     
-    // Simulação de Dados (Fallback/Mock)
-    // Usado caso a API retorne uma lista vazia ou não consiga ser contactada.
+    // Simulação de Dados (Fallback/Mock) - Mantidos para o caso da API falhar
     const mockTransacoes: PagamentoTransacao[] = [
         { id_transacao_unica: 'T123', descricao: 'Pagamento de Propinas - Setembro', valor: 45000, status: 'PAGO', data_transacao: '2024-09-05T10:00:00Z' },
         { id_transacao_unica: 'T124', descricao: 'Taxa de Inscrição 2024', valor: 5000, status: 'PAGO', data_transacao: '2024-08-15T10:00:00Z' },
@@ -171,4 +171,3 @@ export default function HistoricoScreen() {
         </View>
     );
 }
-

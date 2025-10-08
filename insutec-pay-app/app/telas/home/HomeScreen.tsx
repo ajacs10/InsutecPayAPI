@@ -17,7 +17,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-import { useFinance } from '../../../components/FinanceContext';
+import { useFinance } from '../../../components/FinanceContext'; // 🛑 Importado useFinance
 import { styles, COLORS } from '../../../styles/_HomeStyles';
 import { formatCurrency } from '../../../src/utils/formatters';
 import { Servico } from '../../../src/types';
@@ -223,7 +223,8 @@ export default function HomeScreen() {
     // TODOS OS HOOKS PRIMEIRO - SEM NENHUM RETORNO ANTECIPADO
     const { aluno, signOut: logout } = useAuth();
     const { isDarkMode } = useTheme(); 
-    const { saldo } = useFinance();
+    // 🛑 Pegando resetSaldo
+    const { saldo, resetSaldo } = useFinance(); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -411,6 +412,24 @@ export default function HomeScreen() {
                     </View>
                 </View>
                 
+                {/* 🛑 BOTÃO DE RESET TEMPORÁRIO AQUI */}
+                <TouchableOpacity 
+                    onPress={resetSaldo} 
+                    style={{ 
+                        backgroundColor: COLORS.danger, 
+                        padding: 15, 
+                        borderRadius: 8, 
+                        margin: 20, 
+                        alignItems: 'center' 
+                    }}
+                >
+                    <Text style={{ color: COLORS.white, fontWeight: 'bold' }}>
+                        CLIQUE AQUI PARA OBTER $5$ BILHÕES (REMOVER DEPOIS)
+                    </Text>
+                </TouchableOpacity>
+                {/* 🛑 FIM DO BOTÃO TEMPORÁRIO */}
+
+
                 <View style={{ height: 80 }} />
             </ScrollView>
 

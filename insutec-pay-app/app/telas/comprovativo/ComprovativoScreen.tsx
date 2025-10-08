@@ -1,491 +1,201 @@
-// app/telas/comprovativo/ComprovativoScreen.tsx
-import React, { useRef, useState } from 'react';
-import { useTheme } from '../ThemeContext/ThemeContext';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
-import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { MaterialCommunityIcons, FontAwesome, Ionicons } from '@expo/vector-icons';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import React, { useMemo } from 'react';
+import { 
+    View, Text, ScrollView, TouchableOpacity, SafeAreaView, 
+    ActivityIndicator, Alert, Dimensions, Share, Platform, StyleSheet
+} from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useFinance } from '../../../components/FinanceContext';
+import ConditionalPdfViewer from '../../../components/ConditionalPdfViewer'; 
 
-// Cores fixas
+// Estilos para React Native
 const COLORS = {
-    primary: '#39FF14',
-    success: '#00C853',
-    white: '#FFFFFF',
-    dark: '#000000',
-    darkBackground: '#0F0F0F',
-    lightBackground: '#F0F2F5',
-    cardDark: '#1F1F1F',
-    cardLight: '#FFFFFF',
-    textDark: '#1C1C1C',
-    textLight: '#E0E0E0',
-    subText: '#888888',
+    primary: '#1a4a6d',
+    white: '#fff',
+    textDark: '#333',
+    darkBackground: '#1c1c1c',
+    lightBackground: '#f5f5f5',
+    secondary: '#2ecc71',
+    error: '#e74c3c',
 };
 
+// ... (Restante dos estilos e funções utilitárias)
+
+const sharedStyles = {
+    container: (isDark: boolean) => ({
+        flex: 1,
+        backgroundColor: isDark ? COLORS.darkBackground : COLORS.lightBackground,
+    }),
+};
+
+const comprovativoStyles = {
+    card: {
+        padding: 25,
+        marginHorizontal: 20,
+        marginTop: 30,
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 10,
+    },
+    iconContainer: (status: 'PAGO' | 'PENDENTE' | 'CANCELADO') => ({
+        alignSelf: 'center',
+        marginBottom: 15,
+        padding: 15,
+        borderRadius: 50,
+        backgroundColor: status === 'PAGO' ? COLORS.secondary : status === 'CANCELADO' ? COLORS.error : COLORS.primary,
+    }),
+    title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', color: COLORS.primary, marginBottom: 5 },
+    subtitle: { fontSize: 16, textAlign: 'center', color: '#666', marginBottom: 20 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    detailLabel: { fontSize: 15, color: '#666' },
+    detailValue: { fontSize: 15, fontWeight: '600', color: COLORS.textDark, maxWidth: '60%', textAlign: 'right' },
+    totalRow: { paddingVertical: 15, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+    totalLabel: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
+    totalValue: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary },
+    buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30, marginHorizontal: 5 },
+    button: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 8, alignItems: 'center', flex: 1, marginHorizontal: 5, height: 50, justifyContent: 'center' },
+    secondaryButton: {
+        backgroundColor: COLORS.white,
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        flex: 1,
+        marginHorizontal: 5,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        height: 50,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+    },
+    buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
+    secondaryButtonText: { color: COLORS.primary, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+};
+
+const { height } = Dimensions.get('window');
+
+const formatCurrency = (value: number | null | undefined) =>
+    (value || 0).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });
+
+const formatDateTime = (date: string) => new Date(date).toLocaleString('pt-AO', { dateStyle: 'short', timeStyle: 'short' });
+
+const useColorScheme = () => ({ colorScheme: 'light' });
+
 export default function ComprovativoScreen() {
-    const { isDarkMode } = useTheme();
-    const params = useLocalSearchParams();
-    const [isSharing, setIsSharing] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
+    const router = useRouter();
+    const { id, pdfPath } = useLocalSearchParams() as { id: string; pdfPath?: string };
+    const { comprovativos, isLoading: isFinanceLoading } = useFinance();
+    const isDarkMode = useColorScheme().colorScheme === 'dark';
 
-    // Dados da transação
-    const comprovativo = {
-        id: String(params.id || '0000'),
-        id_transacao_unica: String(params.id_transacao_unica || 'N/A'),
-        valor_total: String(params.valor_total || '0.00'),
-        metodo_pagamento: String(params.metodo_pagamento || 'N/A'),
-        descricao: String(params.descricao || 'Nenhuma Transação Encontrada'),
-        status: (params.status as 'SUCESSO') || 'SUCESSO',
-        data: String(params.data || new Date().toISOString()),
-        saldo_anterior: String(params.saldo_anterior || '0.00'),
-        saldo_atual: String(params.saldo_atual || '0.00'),
-    };
+    const comprovativo = useMemo(() => {
+        return comprovativos.find(c => c.id === id);
+    }, [id, comprovativos]);
 
-    const valorTotal = parseFloat(comprovativo.valor_total);
-    const saldoAtual = parseFloat(comprovativo.saldo_atual);
-    const saldoAnterior = parseFloat(comprovativo.saldo_anterior);
-
-    const formatCurrency = (value: number) => {
-        return `${value.toFixed(2)} AOA`;
-    };
-
-    const formatDate = (dateString: string) => {
-        try {
-            return new Date(dateString).toLocaleString('pt-AO');
-        } catch {
-            return 'Data inválida';
+    const handleShare = async () => {
+        const sharePath = comprovativo?.pdfPath || pdfPath;
+        if (!sharePath) {
+            Alert.alert('Erro', 'Caminho do PDF não encontrado.');
+            return;
         }
-    };
-
-    const formatDateForPDF = (dateString: string) => {
-        try {
-            return new Date(dateString).toLocaleDateString('pt-AO', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch {
-            return 'Data inválida';
+        if (Platform.OS === 'web') {
+            Alert.alert('Erro', 'Compartilhamento de PDF não suportado na web. Baixe o PDF manualmente.');
+            return;
         }
-    };
-
-    // Gerar HTML para o PDF
-    const generatePDFHTML = () => {
-        return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Comprovativo de Pagamento</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    padding: 20px;
-                    color: #333;
-                }
-                .header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    border-bottom: 3px solid #00C853;
-                    padding-bottom: 20px;
-                }
-                .logo {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: #39FF14;
-                    margin-bottom: 10px;
-                }
-                .title {
-                    font-size: 20px;
-                    font-weight: bold;
-                    color: #00C853;
-                    margin-bottom: 5px;
-                }
-                .amount {
-                    font-size: 28px;
-                    font-weight: bold;
-                    color: #39FF14;
-                    margin: 10px 0;
-                }
-                .section {
-                    margin-bottom: 25px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    padding: 15px;
-                }
-                .section-title {
-                    font-size: 16px;
-                    font-weight: bold;
-                    margin-bottom: 15px;
-                    color: #333;
-                    border-bottom: 1px solid #eee;
-                    padding-bottom: 5px;
-                }
-                .row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                    padding-bottom: 8px;
-                    border-bottom: 1px solid #f0f0f0;
-                }
-                .label {
-                    font-weight: 600;
-                    color: #666;
-                    flex: 1;
-                }
-                .value {
-                    font-weight: 600;
-                    text-align: right;
-                    flex: 1.5;
-                }
-                .highlight {
-                    font-size: 16px;
-                    font-weight: 900;
-                    color: #39FF14;
-                }
-                .footer {
-                    text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                    color: #666;
-                    font-size: 12px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div class="logo">INSU TEC PAY</div>
-                <div class="title">COMPROVATIVO DE PAGAMENTO</div>
-                <div class="amount">${formatCurrency(valorTotal)}</div>
-                <div style="color: #00C853; font-weight: bold;">✓ Pagamento Concluído com Sucesso</div>
-            </div>
-
-            <div class="section">
-                <div class="section-title">DETALHES DA TRANSAÇÃO</div>
-                <div class="row">
-                    <div class="label">ID da Transação:</div>
-                    <div class="value">${comprovativo.id_transacao_unica}</div>
-                </div>
-                <div class="row">
-                    <div class="label">Data e Hora:</div>
-                    <div class="value">${formatDateForPDF(comprovativo.data)}</div>
-                </div>
-                <div class="row">
-                    <div class="label">Descrição:</div>
-                    <div class="value">${comprovativo.descricao}</div>
-                </div>
-                <div class="row">
-                    <div class="label">Método de Pagamento:</div>
-                    <div class="value">${comprovativo.metodo_pagamento}</div>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="section-title">RESUMO FINANCEIRO</div>
-                <div class="row">
-                    <div class="label">VALOR PAGO</div>
-                    <div class="value highlight">${formatCurrency(valorTotal)}</div>
-                </div>
-                <div class="row">
-                    <div class="label">Saldo Anterior</div>
-                    <div class="value">${formatCurrency(saldoAnterior)}</div>
-                </div>
-                <div class="row">
-                    <div class="label">Saldo Atual</div>
-                    <div class="value">${formatCurrency(saldoAtual)}</div>
-                </div>
-            </div>
-
-            <div class="footer">
-                <p>Comprovativo gerado automaticamente pelo sistema Insu Tec Pay</p>
-                <p>Este é um comprovativo válido para todos os efeitos</p>
-                <p>Data de emissão: ${new Date().toLocaleDateString('pt-AO')}</p>
-            </div>
-        </body>
-        </html>
-        `;
-    };
-
-    // Download do PDF
-    const handleDownloadPDF = async () => {
-        setIsDownloading(true);
         try {
-            // Gerar o PDF
-            const { uri } = await Print.printToFileAsync({
-                html: generatePDFHTML(),
-                base64: false,
+            await Share.share({
+                url: `file://${sharePath}`, 
+                message: `Comprovativo de Pagamento - ID: ${id}`,
             });
-
-            // Mover para diretório de documentos
-            const fileName = `Comprovativo_${comprovativo.id_transacao_unica}_${Date.now()}.pdf`;
-            const directory = `${FileSystem.documentDirectory}comprovativos/`;
-            
-            // Criar diretório se não existir
-            await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-            
-            const newUri = `${directory}${fileName}`;
-            await FileSystem.moveAsync({
-                from: uri,
-                to: newUri,
-            });
-
-            // Verificar se pode compartilhar
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(newUri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Partilhar Comprovativo em PDF',
-                });
-            } else {
-                Alert.alert(
-                    'PDF Gerado com Sucesso!',
-                    `O comprovativo foi guardado em: ${newUri}`,
-                    [{ text: 'OK' }]
-                );
-            }
-
-            Alert.alert('Sucesso', 'Comprovativo em PDF gerado e guardado com sucesso!');
-            
         } catch (error) {
-            console.error('Erro ao gerar PDF:', error);
-            Alert.alert('Erro', 'Não foi possível gerar o comprovativo em PDF.');
-        } finally {
-            setIsDownloading(false);
+            console.error('Erro ao compartilhar PDF:', error);
+            Alert.alert('Erro', 'Não foi possível compartilhar o comprovativo.');
         }
     };
 
-    const handleShareComprovativo = async () => {
-        setIsSharing(true);
-        try {
-            // Simular compartilhamento
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            Alert.alert('Sucesso', 'Comprovativo preparado para partilha!');
-        } catch (error) {
-            Alert.alert('Erro', 'Não foi possível partilhar o comprovativo.');
-        } finally {
-            setIsSharing(false);
-        }
-    };
+    if (isFinanceLoading || !comprovativo) {
+        return (
+            <SafeAreaView style={[sharedStyles.container(isDarkMode), { justifyContent: 'center', alignItems: 'center', minHeight: height }]}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ marginTop: 15, fontSize: 16, color: isDarkMode ? COLORS.white : COLORS.textDark, fontWeight: '500' }}>
+                    {isFinanceLoading ? 'Aguardando dados da base de dados...' : (id ? `Buscando comprovativo ${id}...` : 'Nenhum ID de transação fornecido.')}
+                </Text>
+            </SafeAreaView>
+        );
+    }
 
-    const handleGoHome = () => {
-        router.replace('/telas/home/HomeScreen');
-    };
+    const iconName = comprovativo.tipo === 'Débito' ? 'close-circle' : 'checkmark-circle';
+    const primaryColor = comprovativo.tipo === 'Débito' ? COLORS.primary : COLORS.secondary;
+    
+    const sourcePath = comprovativo?.pdfPath || pdfPath;
+    const source = sourcePath ? { uri: sourcePath, cache: true } : null;
+
 
     return (
-        <View style={{ 
-            flex: 1, 
-            backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground 
-        }}>
-            <Stack.Screen
-                options={{
-                    title: 'Comprovativo',
-                    headerShown: true,
-                }}
-            />
-            
-            <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
-                {/* Cabeçalho */}
-                <View style={{
-                    backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-                    borderRadius: 15,
-                    padding: 30,
-                    alignItems: 'center',
-                    marginBottom: 20,
-                    borderBottomWidth: 5,
-                    borderBottomColor: COLORS.success,
-                    shadowColor: isDarkMode ? COLORS.white : COLORS.dark,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 5,
-                    elevation: 4,
-                }}>
-                    <MaterialCommunityIcons name="check-circle" size={48} color={COLORS.success} />
-                    <Text style={{ fontSize: 18, fontWeight: '700', marginTop: 15, color: COLORS.success }}>
-                        Pagamento Concluído
-                    </Text>
-                    <Text style={{ fontSize: 32, fontWeight: '900', marginTop: 10, color: COLORS.primary }}>
-                        {formatCurrency(valorTotal)}
-                    </Text>
-                </View>
-
-                {/* Detalhes da Transação */}
-                <View style={{
-                    backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-                    borderRadius: 15,
-                    padding: 20,
-                    marginBottom: 15,
-                    shadowColor: isDarkMode ? COLORS.white : COLORS.dark,
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 3,
-                    elevation: 2,
-                }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 15, color: isDarkMode ? COLORS.textLight : COLORS.textDark }}>
-                        Detalhes da Transação
-                    </Text>
-                    
-                    {[
-                        { label: 'ID Transação:', value: comprovativo.id_transacao_unica },
-                        { label: 'Data e Hora:', value: formatDate(comprovativo.data) },
-                        { label: 'Descrição:', value: comprovativo.descricao },
-                        { label: 'Método de Pagamento:', value: comprovativo.metodo_pagamento },
-                    ].map((item, index) => (
-                        <View key={index} style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            paddingVertical: 10,
-                            borderBottomWidth: index < 3 ? 1 : 0,
-                            borderBottomColor: 'rgba(136, 136, 136, 0.1)',
-                        }}>
-                            <Text style={{ fontSize: 14, color: isDarkMode ? COLORS.subText : COLORS.textDark, flex: 1 }}>
-                                {item.label}
-                            </Text>
-                            <Text style={{ 
-                                fontSize: 14, 
-                                fontWeight: '600', 
-                                color: isDarkMode ? COLORS.textLight : COLORS.textDark, 
-                                textAlign: 'right', 
-                                flex: 1.5 
-                            }}>
-                                {item.value}
-                            </Text>
-                        </View>
-                    ))}
-                </View>
-
-                {/* Resumo Financeiro */}
-                <View style={{
-                    backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
-                    borderRadius: 15,
-                    padding: 20,
-                    marginBottom: 15,
-                    shadowColor: isDarkMode ? COLORS.white : COLORS.dark,
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 3,
-                    elevation: 2,
-                }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 15, color: isDarkMode ? COLORS.textLight : COLORS.textDark }}>
-                        Resumo Financeiro
-                    </Text>
-                    
-                    {[
-                        { label: 'VALOR PAGO', value: formatCurrency(valorTotal), highlight: true },
-                        { label: 'Saldo Anterior', value: formatCurrency(saldoAnterior), highlight: false },
-                        { label: 'Saldo Atual', value: formatCurrency(saldoAtual), highlight: false },
-                    ].map((item, index) => (
-                        <View key={index} style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            paddingVertical: 10,
-                            borderBottomWidth: index < 2 ? 1 : 0,
-                            borderBottomColor: 'rgba(136, 136, 136, 0.1)',
-                        }}>
-                            <Text style={{ 
-                                fontSize: 14, 
-                                color: isDarkMode ? COLORS.subText : COLORS.textDark, 
-                                flex: 1,
-                                fontWeight: item.highlight ? '700' : '400'
-                            }}>
-                                {item.label}
-                            </Text>
-                            <Text style={{ 
-                                fontSize: item.highlight ? 16 : 14, 
-                                fontWeight: item.highlight ? '900' : '600', 
-                                color: item.highlight ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.textDark), 
-                                textAlign: 'right', 
-                                flex: 1.5 
-                            }}>
-                                {item.value}
-                            </Text>
-                        </View>
-                    ))}
-                </View>
-            </ScrollView>
-
-            {/* Botões de Ação */}
-            <View style={{
-                padding: 20,
-                paddingBottom: 30,
-                backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-                borderTopWidth: 1,
-                borderTopColor: isDarkMode ? '#2D2D2D' : 'rgba(0, 0, 0, 0.1)',
-                shadowColor: isDarkMode ? COLORS.white : COLORS.dark,
-                shadowOffset: { width: 0, height: -2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 3,
-                elevation: 8,
-            }}>
-                {/* Botão de Download PDF */}
-                <TouchableOpacity
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#2196F3',
-                        padding: 15,
-                        borderRadius: 8,
-                        marginBottom: 10,
-                    }}
-                    onPress={handleDownloadPDF}
-                    disabled={isDownloading}
-                >
-                    {isDownloading ? (
-                        <ActivityIndicator color={COLORS.white} style={{ marginRight: 10 }} />
-                    ) : (
-                        <Ionicons name="download" size={20} color={COLORS.white} style={{ marginRight: 10 }} />
-                    )}
-                    <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 16 }}>
-                        {isDownloading ? 'A gerar PDF...' : 'Baixar PDF'}
-                    </Text>
-                </TouchableOpacity>
-
-                {/* Botão de Partilhar */}
-                <TouchableOpacity
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: COLORS.primary,
-                        padding: 15,
-                        borderRadius: 8,
-                        marginBottom: 10,
-                    }}
-                    onPress={handleShareComprovativo}
-                    disabled={isSharing}
-                >
-                    {isSharing ? (
-                        <ActivityIndicator color={COLORS.dark} style={{ marginRight: 10 }} />
-                    ) : (
-                        <FontAwesome name="share-alt" size={20} color={COLORS.dark} style={{ marginRight: 10 }} />
-                    )}
-                    <Text style={{ color: COLORS.dark, fontWeight: '700', fontSize: 16 }}>
-                        {isSharing ? 'A preparar...' : 'Partilhar Comprovativo'}
-                    </Text>
-                </TouchableOpacity>
+        <SafeAreaView style={sharedStyles.container(isDarkMode)}>
+            <Stack.Screen options={{ title: 'Comprovativo de Pagamento' }} />
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 
-                {/* Botão Concluir */}
-                <TouchableOpacity
-                    style={{
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 15,
-                        borderRadius: 8,
-                        backgroundColor: isDarkMode ? '#282828' : COLORS.dark,
-                        borderWidth: 1,
-                        borderColor: isDarkMode ? '#282828' : COLORS.dark,
-                    }}
-                    onPress={handleGoHome}
-                >
-                    <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 16 }}>
-                        Concluir
+                {/* Visualizador de PDF Condicional */}
+                <View style={{ height: 400, margin: 20 }}>
+                    <ConditionalPdfViewer 
+                        source={source} 
+                        style={{ flex: 1, width: '100%', height: '100%', borderWidth: 1, borderColor: '#ccc', borderRadius: 10 }}
+                    />
+                </View>
+
+                {/* Detalhes da Transação em React Native */}
+                <View style={comprovativoStyles.card}>
+                    <View style={comprovativoStyles.iconContainer(comprovativo.tipo === 'Débito' ? 'PENDENTE' : 'PAGO')}>
+                        <Ionicons name={iconName} size={40} color={COLORS.white} />
+                    </View>
+                    <Text style={[comprovativoStyles.title, { color: primaryColor }]}>Comprovativo de Pagamento</Text>
+                    <Text style={comprovativoStyles.subtitle}>
+                        Tipo: <Text style={{ fontWeight: 'bold', color: primaryColor }}>{comprovativo.tipo}</Text>
                     </Text>
-                </TouchableOpacity>
-            </View>
-        </View>
+                    <View>
+                        <View style={comprovativoStyles.detailRow}>
+                            <Text style={comprovativoStyles.detailLabel}>Data e Hora</Text>
+                            <Text style={comprovativoStyles.detailValue}>{formatDateTime(comprovativo.data)}</Text>
+                        </View>
+                        <View style={comprovativoStyles.detailRow}>
+                            <Text style={comprovativoStyles.detailLabel}>Descrição</Text>
+                            <Text style={comprovativoStyles.detailValue}>{comprovativo.descricao}</Text>
+                        </View>
+                        <View style={comprovativoStyles.detailRow}>
+                            <Text style={comprovativoStyles.detailLabel}>Valor</Text>
+                            <Text style={comprovativoStyles.detailValue}>{formatCurrency(comprovativo.valor)}</Text>
+                        </View>
+                        <View style={comprovativoStyles.detailRow}>
+                            <Text style={comprovativoStyles.detailLabel}>ID da Transação</Text>
+                            <Text style={comprovativoStyles.detailValue}>{comprovativo.id}</Text>
+                        </View>
+                        <View style={[comprovativoStyles.totalRow, { borderBottomWidth: 0 }]}>
+                            <Text style={comprovativoStyles.totalLabel}>TOTAL PAGO</Text>
+                            <Text style={comprovativoStyles.totalValue}>{formatCurrency(comprovativo.valor)}</Text>
+                        </View>
+                    </View>
+                    <View style={comprovativoStyles.buttonContainer}>
+                        <TouchableOpacity style={comprovativoStyles.secondaryButton} onPress={handleShare}>
+                            <Feather name="share-2" size={18} color={COLORS.primary} />
+                            <Text style={comprovativoStyles.secondaryButtonText}>Compartilhar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[comprovativoStyles.button, { backgroundColor: primaryColor }]}
+                            onPress={() => router.replace('/(tabs)')}
+                        >
+                            <Text style={comprovativoStyles.buttonText}>Voltar ao Início</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                <View style={{ flex: 1 }} />
+            </ScrollView>
+        </SafeAreaView>
     );
 }
