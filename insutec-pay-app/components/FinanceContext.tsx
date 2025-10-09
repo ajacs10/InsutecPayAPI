@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
-import { PERMISSIONS, request, RESULTS } from 'react-native-permissions';
-
-
+import * as FileSystem from 'expo-file-system';
 
 // --- CONFIGURAÇÃO ---
 const SALDO_STORAGE_KEY = '@insutecpay_saldo';
@@ -12,7 +10,6 @@ const COMPROVATIVOS_STORAGE_KEY = '@insutecpay_comprovativos';
 const DUMMY_SALDO_INICIAL = 5000000000.00;
 const DUMMY_COMPROVATIVOS_INICIAIS: any[] = [];
 
-// --- TIPAGEM ---
 type Comprovativo = {
     id: string;
     valor: number;
@@ -20,6 +17,9 @@ type Comprovativo = {
     descricao: string;
     data: string;
     pdfPath?: string;
+    metodo_pagamento?: string;
+    tipo_servico?: string;
+    estudante_alvo_id?: string;
 };
 
 type FinanceContextType = {
@@ -29,13 +29,18 @@ type FinanceContextType = {
     updateSaldo: (valor: number) => Promise<void>;
     addComprovativo: (comprovativo: Comprovativo) => Promise<void>;
     resetSaldo: () => Promise<void>;
-    processarPagamento: (valor: number, descricao: string) => Promise<boolean>;
+    processarPagamento: (
+        valor: number, 
+        descricao: string, 
+        id_transacao_unica?: string, 
+        metodo_pagamento?: string, 
+        tipo_servico?: string, 
+        estudante_alvo_id?: string
+    ) => Promise<boolean>;
 };
 
-// Valor padrão do Contexto
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-// --- HOOK PERSONALIZADO ---
 export const useFinance = () => {
     const context = useContext(FinanceContext);
     if (context === undefined) {
@@ -50,33 +55,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [comprovativos, setComprovativos] = useState<Comprovativo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Função para solicitar permissão de armazenamento
-    const requestStoragePermission = async (): Promise<boolean> => {
-        // A permissão só é necessária em Android
-        if (Platform.OS !== 'android') return true; 
-
-        try {
-            const permission = PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE;
-            const result = await request(permission);
-            if (result === RESULTS.GRANTED) {
-                console.log('[FinanceContext] Permissão de armazenamento concedida.');
-                return true;
-            } else {
-                Alert.alert(
-                    'Permissão Necessária',
-                    'Para gerar o comprovativo em PDF, permita o acesso ao armazenamento.',
-                    [{ text: 'OK' }]
-                );
-                return false;
-            }
-        } catch (error) {
-            console.error('[FinanceContext] Erro ao solicitar permissão:', error);
-            Alert.alert('Erro', 'Não foi possível verificar a permissão de armazenamento.');
-            return false;
-        }
-    };
-
-    // Função para carregar o saldo e comprovativos
     const loadData = useCallback(async () => {
         try {
             const storedSaldo = await AsyncStorage.getItem(SALDO_STORAGE_KEY);
@@ -102,7 +80,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, []);
 
-    // Função para atualizar e persistir o saldo
     const updateSaldo = useCallback(async (novoValor: number) => {
         try {
             setSaldo(novoValor);
@@ -112,11 +89,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, []);
 
-    // Função para adicionar comprovativo
     const addComprovativo = useCallback(async (comprovativo: Comprovativo) => {
         try {
             setComprovativos(prev => {
-                const newComprovativos = [comprovativo, ...prev]; // Adicionar mais recente primeiro
+                const newComprovativos = [comprovativo, ...prev];
                 AsyncStorage.setItem(COMPROVATIVOS_STORAGE_KEY, JSON.stringify(newComprovativos));
                 return newComprovativos;
             });
@@ -125,8 +101,61 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, []);
 
-    // Função para processar o pagamento e gerar PDF (mobile-only)
-    const processarPagamento = useCallback(async (valor: number, descricao: string): Promise<boolean> => {
+    // CORREÇÃO: Geração de PDF simplificada sem StorageAccessFramework
+    const generateComprovativoContent = (
+        idTransacao: string,
+        descricao: string,
+        valor: number,
+        metodo_pagamento?: string,
+        tipo_servico?: string,
+        estudante_alvo_id?: string,
+        saldoAnterior?: number,
+        saldoAtual?: number
+    ): string => {
+        const currentDate = new Date().toLocaleString('pt-AO');
+        const formatCurrency = (v: number) => v.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' });
+
+        return `
+COMPROVATIVO DE PAGAMENTO - INSUTEC PAY
+========================================
+
+ID da Transação: ${idTransacao}
+Data/Hora: ${currentDate}
+Status: PAGO
+
+DETALHES DO PAGAMENTO:
+----------------------
+Serviço: ${tipo_servico || 'Serviço Académico'}
+Descrição: ${descricao}
+${estudante_alvo_id ? `Estudante: ${estudante_alvo_id}` : ''}
+
+INFORMAÇÕES FINANCEIRAS:
+------------------------
+Valor do Pagamento: ${formatCurrency(valor)}
+Método de Pagamento: ${metodo_pagamento || 'Cartão Atlântico Universitário+'}
+${saldoAnterior ? `Saldo Anterior: ${formatCurrency(saldoAnterior)}` : ''}
+${saldoAtual ? `Saldo Atual: ${formatCurrency(saldoAtual)}` : ''}
+
+========================================
+Este é um comprovativo eletrónico gerado
+automaticamente pelo sistema InsutecPay.
+
+Data de emissão: ${currentDate}
+Transação ID: ${idTransacao}
+========================================
+        `.trim();
+    };
+
+    const processarPagamento = useCallback(async (
+        valor: number, 
+        descricao: string, 
+        id_transacao_unica?: string, 
+        metodo_pagamento?: string, 
+        tipo_servico?: string, 
+        estudante_alvo_id?: string
+    ): Promise<boolean> => {
+        console.log(`[FinanceContext] Processando pagamento: ${valor}, saldo atual: ${saldo}`);
+        
         if (saldo < valor) {
             console.error('[FinanceContext] Saldo insuficiente para processar pagamento.');
             Alert.alert('Erro', 'Saldo insuficiente para processar o pagamento.');
@@ -134,48 +163,52 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
 
         try {
+            const saldoAnterior = saldo;
             const novoSaldo = saldo - valor;
             await updateSaldo(novoSaldo);
 
-            const idTransacao = Date.now().toString();
+            const idTransacao = id_transacao_unica || `TX-${Date.now()}`;
             let pdfPath: string | undefined;
 
-            // 💡 Usar RNFS e RNHTMLtoPDF APENAS se não for web (e se o require funcionar)
-            if (Platform.OS !== 'web' && RNFS && RNHTMLtoPDF) {
-                const hasPermission = await requestStoragePermission();
-                if (!hasPermission) return false;
+            // CORREÇÃO: Geração de arquivo simplificada sem permissões complexas
+            if (Platform.OS !== 'web') {
+                try {
+                    // Usando documentDirectory que não requer permissões especiais
+                    const directory = `${FileSystem.documentDirectory}comprovativos/`;
+                    
+                    // Verifica se o diretório existe, se não, cria
+                    const dirInfo = await FileSystem.getInfoAsync(directory);
+                    if (!dirInfo.exists) {
+                        await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+                    }
 
-                // Formatação simples para HTML
-                const formatCurrency = (v: number) => v.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' });
+                    const fileName = `comprovativo_${idTransacao}.txt`;
+                    const filePath = `${directory}${fileName}`;
+                    
+                    const comprovativoContent = generateComprovativoContent(
+                        idTransacao,
+                        descricao,
+                        valor,
+                        metodo_pagamento,
+                        tipo_servico,
+                        estudante_alvo_id,
+                        saldoAnterior,
+                        novoSaldo
+                    );
 
-                const htmlContent = `
-                    <html>
-                        <body style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
-                            <h1 style="color: #1a4a6d;">Comprovativo de Pagamento - InsutecPay</h1>
-                            <p style="font-size: 14px; color: #666;">Transação concluída com sucesso.</p>
-                            <h2 style="color: #2ecc71; font-size: 28px;">${formatCurrency(valor)}</h2>
-                            <p><strong>Descrição:</strong> ${descricao}</p>
-                            <p><strong>ID da Transação:</strong> ${idTransacao}</p>
-                            <p><strong>Data:</strong> ${new Date().toLocaleString('pt-AO')}</p>
-                            <p><strong>Tipo:</strong> Débito</p>
-                            <hr style="margin-top: 20px; border-color: #ddd;">
-                            <p><strong>Novo Saldo:</strong> ${formatCurrency(novoSaldo)}</p>
-                        </body>
-                    </html>
-                `;
-
-                // 💡 Usar RNFS.default e RNHTMLtoPDF.default
-                const options = {
-                    html: htmlContent,
-                    fileName: `comprovativo_${idTransacao}`,
-                    // Direcionar para DocumentDirectoryPath é mais seguro do que External Storage (apenas Android)
-                    directory: `${RNFS.default.DocumentDirectoryPath}/Comprovativos`, 
-                };
-
-                // Criar diretório e gerar PDF
-                await RNFS.default.mkdir(options.directory);
-                const file = await RNHTMLtoPDF.default.pdf(options);
-                pdfPath = file.filePath;
+                    await FileSystem.writeAsStringAsync(filePath, comprovativoContent, {
+                        encoding: FileSystem.EncodingType.UTF8
+                    });
+                    
+                    pdfPath = filePath;
+                    console.log(`✅ Comprovativo salvo em: ${pdfPath}`);
+                    
+                } catch (pdfError) {
+                    console.log('📝 Comprovativo não gerado (continuação normal):', pdfError);
+                    // Não bloqueia o pagamento se o arquivo falhar
+                }
+            } else {
+                console.log('🌐 Ambiente web: comprovativo não salvo localmente');
             }
 
             const novoComprovativo: Comprovativo = {
@@ -185,24 +218,28 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
                 descricao,
                 data: new Date().toISOString(),
                 pdfPath,
+                metodo_pagamento,
+                tipo_servico,
+                estudante_alvo_id
             };
+
             await addComprovativo(novoComprovativo);
 
-            console.log(`[FinanceContext] Pagamento de ${valor} processado. Novo saldo: ${novoSaldo}, PDF gerado: ${pdfPath || 'N/A (web)'}`);
+            console.log(`[FinanceContext] ✅ Pagamento de ${valor} processado com SUCESSO. Novo saldo: ${novoSaldo}`);
             return true;
+
         } catch (error) {
-            console.error('[FinanceContext] Erro ao processar pagamento ou gerar PDF:', error);
-            Alert.alert('Erro', 'Não foi possível processar o pagamento ou gerar o comprovativo.');
+            console.error('[FinanceContext] ❌ Erro crítico ao processar pagamento:', error);
+            Alert.alert('Erro', 'Não foi possível processar o pagamento. Tente novamente.');
             return false;
         }
     }, [saldo, updateSaldo, addComprovativo]);
 
-    // Função para resetar o saldo
     const resetSaldo = useCallback(async () => {
         try {
             await AsyncStorage.removeItem(SALDO_STORAGE_KEY);
             await AsyncStorage.removeItem(COMPROVATIVOS_STORAGE_KEY);
-            console.log('[FinanceContext] AsyncStorage Saldo e Comprovativos limpos. Recarregando com DUMMY_SALDO_INICIAL.');
+            console.log('[FinanceContext] AsyncStorage limpo. Recarregando dados...');
             await loadData();
         } catch (error) {
             console.error('[FinanceContext] Erro ao resetar dados:', error);
@@ -213,7 +250,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         loadData();
     }, [loadData]);
 
-    const contextValue = {
+    const contextValue: FinanceContextType = {
         saldo,
         isLoading,
         comprovativos,
@@ -222,10 +259,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         resetSaldo,
         processarPagamento,
     };
-
-    if (isLoading) {
-        return null; // Não renderizar nada enquanto carrega
-    }
 
     return (
         <FinanceContext.Provider value={contextValue}>

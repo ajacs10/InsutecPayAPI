@@ -2,34 +2,43 @@
 
 /**
  * Formata um número para a moeda de Angola (AOA - Kwanza).
- * @param amount O valor numérico a ser formatado.
+ * O formato pretendido é '1.234.567,89 Kz'.
+ * @param amount O valor numérico ou string a ser formatado.
  */
-export const formatCurrency = (amount: number | string): string => {
+export const formatCurrency = (amount: number | string | null | undefined): string => {
     let numericAmount: number;
 
-    // Converte string para número se necessário
-    if (typeof amount === 'string') {
+    // 1. Trata null, undefined, ou strings inválidas, definindo o valor como 0
+    if (amount === null || amount === undefined || (typeof amount === 'string' && isNaN(parseFloat(amount)))) {
+        numericAmount = 0;
+    } else if (typeof amount === 'string') {
         numericAmount = parseFloat(amount);
-    } else if (typeof amount === 'number') {
-        numericAmount = amount;
     } else {
+        numericAmount = amount;
+    }
+
+    // Se o valor for NaN após a conversão, volta para 0
+    if (isNaN(numericAmount)) {
         numericAmount = 0;
     }
 
-    // Se o valor for NaN (resultante de uma string inválida), devolve 0,00
-    if (isNaN(numericAmount) || numericAmount === null || numericAmount === undefined) {
-        numericAmount = 0;
-    }
-
-    // Formata o valor com duas casas decimais e substitui o símbolo da moeda por "Kz"
-    // Nota: O locale 'pt-AO' já deve produzir o símbolo 'Kz', mas a sua solução .replace('Kz', '').trim() + 'Kz' garante que fique no final, como pretendido.
-    return new Intl.NumberFormat('pt-AO', {
+    // 2. Formatação Intl.NumberFormat
+    const formatted = new Intl.NumberFormat('pt-AO', {
         style: 'currency',
-        currency: 'AOA', // Código da Moeda Kwanza
+        currency: 'AOA', // Kwanza Angolano
         minimumFractionDigits: 2,
-    }).format(numericAmount)
-      .replace('AOA', '').replace('Kz', '').trim() + ' Kz'; 
-    // Ajustado para garantir que "Kz" fique separado por espaço no final.
+    }).format(numericAmount);
+
+    // 3. Ajuste de Símbolo (Remove o símbolo nativo 'AOA' e adiciona 'Kz' com espaço no final)
+    // A formatação 'pt-AO' muitas vezes já usa 'Kz'. Vamos simplificar e garantir ' Kz' no final.
+    const currencySymbol = 'Kz';
+    const amountWithoutSymbol = formatted
+        .replace(currencySymbol, '') // Remove o Kz que possa ter vindo
+        .replace('AOA', '') // Remove AOA se veio por defeito
+        .trim();
+
+    // 4. Concatena o valor e o símbolo com um espaço.
+    return `${amountWithoutSymbol} ${currencySymbol}`;
 };
 
 
@@ -38,7 +47,7 @@ export const formatCurrency = (amount: number | string): string => {
  * Ex: 06/Out/2025 17:35:00
  * @param dateString A string de data (e hora) ou objeto Date.
  */
-export const formatDate = (dateString: string | Date): string => {
+export const formatDate = (dateString: string | Date | null | undefined): string => {
     if (!dateString) {
         return 'Data Indisponível';
     }
@@ -46,6 +55,7 @@ export const formatDate = (dateString: string | Date): string => {
     let dateObject: Date;
 
     if (typeof dateString === 'string') {
+        // Tentativa de parsing. O construtor do Date lida bem com a maioria das strings ISO
         dateObject = new Date(dateString);
     } else {
         dateObject = dateString;
@@ -57,18 +67,21 @@ export const formatDate = (dateString: string | Date): string => {
 
     const options: Intl.DateTimeFormatOptions = {
         day: '2-digit',
-        month: 'short',
+        month: 'short', // Ex: Jan, Fev, Mar, Out
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
         hour12: false, // Usa formato 24 horas
-        timeZone: 'Africa/Luanda', // Garante o fuso horário correto (Angola)
+        timeZone: 'Africa/Luanda', // Fuso horário de Angola
     };
 
-    // Usa 'pt-PT' ou 'pt-AO' para formato português, mas 'pt-AO' pode ser mais específico
     const formattedDate = new Intl.DateTimeFormat('pt-AO', options).format(dateObject);
 
-    // Ajusta o formato para remover vírgulas e garantir barras se necessário
-    return formattedDate.replace(/, /g, ' ').replace(/:/g, ':');
+    // Ajusta o formato para o padrão "DD/Mês/AAAA HH:MM:SS" (sem vírgulas ou AM/PM)
+    // Ex: "09/out/2025, 12:33:00" (saída pt-AO) -> "09/out/2025 12:33:00"
+    return formattedDate
+        .replace(/, /g, ' ') // Remove vírgula e espaço após a data (se existir)
+        .replace(/\s+/g, ' ') // Remove espaços duplicados
+        .trim();
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../ThemeContext/ThemeContext';
@@ -24,18 +24,29 @@ const COLORS = {
 export default function ReciboScreen() {
   const { isDarkMode } = useTheme();
   const params = useLocalSearchParams() as {
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    total: string;
-    status: 'PAGO' | 'PENDENTE' | 'VENCIDO';
-    type: string;
+    id?: string;
+    title?: string;
+    description?: string;
+    date?: string;
+    total?: string;
+    status?: 'PAGO' | 'PENDENTE' | 'VENCIDO';
+    type?: string;
     saldo_anterior?: string;
     saldo_atual?: string;
+    id_transacao_unica?: string;
+    valor_total?: string;
+    descricao?: string;
+    tipo_servico?: string;
   };
 
-  const totalNum = parseFloat(params.total || '0');
+  // Usa os parâmetros alternativos se os principais não estiverem disponíveis
+  const transactionId = params.id || params.id_transacao_unica || 'N/A';
+  const transactionTitle = params.title || params.tipo_servico || 'Transação';
+  const transactionDescription = params.description || params.descricao || 'Pagamento de serviço';
+  const transactionTotal = params.total || params.valor_total || '0';
+  const transactionType = params.type || params.tipo_servico || 'Serviço';
+  
+  const totalNum = parseFloat(transactionTotal || '0');
   const saldoAnteriorNum = parseFloat(params.saldo_anterior || '0');
   const saldoAtualNum = parseFloat(params.saldo_atual || '0');
   const isSuccess = params.status === 'PAGO';
@@ -48,13 +59,23 @@ export default function ReciboScreen() {
         hour: '2-digit',
         minute: '2-digit',
       })
-    : 'N/D';
+    : new Date().toLocaleString('pt-AO', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
   const handleGoHome = () => {
-    router.push('/telas/home/HomeScreen');
+    router.replace('/telas/home/HomeScreen');
   };
 
-  const styles = {
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  const styles = StyleSheet.create({
     safeArea: {
       flex: 1,
       backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
@@ -62,11 +83,11 @@ export default function ReciboScreen() {
     container: {
       padding: 16,
       flexGrow: 1,
-      alignItems: 'center',
     },
     statusContainer: {
       alignItems: 'center',
       marginVertical: 20,
+      paddingHorizontal: 20,
     },
     statusTitle: {
       fontSize: 24,
@@ -80,13 +101,12 @@ export default function ReciboScreen() {
       color: isDarkMode ? COLORS.subText : COLORS.gray,
       textAlign: 'center',
       marginTop: 8,
-      paddingHorizontal: 20,
+      lineHeight: 22,
     },
     reciboCard: {
       backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.cardLight,
       borderRadius: 12,
-      padding: 16,
-      width: '100%',
+      padding: 20,
       marginVertical: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -98,16 +118,20 @@ export default function ReciboScreen() {
       fontSize: 18,
       fontWeight: 'bold',
       color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-      marginBottom: 12,
+      marginBottom: 16,
+      textAlign: 'center',
     },
     reciboRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      alignItems: 'center',
+      marginBottom: 12,
+      paddingVertical: 4,
     },
     reciboLabel: {
       fontSize: 14,
       color: isDarkMode ? COLORS.subText : COLORS.gray,
+      flex: 1,
     },
     reciboValue: {
       fontSize: 14,
@@ -119,47 +143,95 @@ export default function ReciboScreen() {
     totalRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 12,
-      paddingTop: 12,
+      alignItems: 'center',
+      marginTop: 16,
+      paddingTop: 16,
       borderTopWidth: 1,
-      borderTopColor: isDarkMode ? COLORS.gray : COLORS.lightGray,
+      borderTopColor: isDarkMode ? '#333' : COLORS.lightGray,
     },
     totalLabel: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: 'bold',
       color: isDarkMode ? COLORS.textLight : COLORS.textDark,
     },
     totalValue: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: 'bold',
       color: COLORS.primary,
     },
+    buttonContainer: {
+      gap: 12,
+      marginTop: 20,
+    },
     homeButton: {
-      backgroundColor: isDarkMode ? COLORS.gray : COLORS.subText,
-      paddingVertical: 12,
+      backgroundColor: COLORS.primary,
+      paddingVertical: 16,
       paddingHorizontal: 20,
-      borderRadius: 8,
-      marginVertical: 10,
-      width: '100%',
+      borderRadius: 12,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    backButton: {
+      backgroundColor: 'transparent',
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? COLORS.gray : COLORS.lightGray,
     },
     homeButtonText: {
       fontSize: 16,
       fontWeight: '600',
-      color: COLORS.white,
+      color: COLORS.darkBackground,
     },
-  };
+    backButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: isSuccess ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255, 82, 82, 0.1)',
+    },
+    statusBadgeText: {
+      fontSize: 12,
+      fontWeight: 'bold',
+      color: isSuccess ? COLORS.success : COLORS.danger,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: isDarkMode ? '#333' : COLORS.lightGray,
+      marginVertical: 8,
+    },
+  });
 
   return (
     <View style={styles.safeArea}>
       <Stack.Screen
         options={{
-          title: isSuccess ? 'Detalhes do Recibo' : 'Falha na Transação',
-          headerStyle: { backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground },
+          title: isSuccess ? 'Recibo de Pagamento' : 'Transação Falhou',
+          headerStyle: { 
+            backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground 
+          },
           headerTintColor: isDarkMode ? COLORS.textLight : COLORS.textDark,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
         }}
       />
-      <ScrollView contentContainerStyle={styles.container}>
+      
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Status da Transação */}
         <View style={styles.statusContainer}>
           <Ionicons
             name={isSuccess ? 'checkmark-circle' : 'close-circle'}
@@ -167,54 +239,108 @@ export default function ReciboScreen() {
             color={isSuccess ? COLORS.success : COLORS.danger}
           />
           <Text style={styles.statusTitle}>
-            {isSuccess ? 'Pagamento Bem-Sucedido!' : 'Pagamento Falhou'}
+            {isSuccess ? 'Pagamento Concluído!' : 'Pagamento Não Concluído'}
           </Text>
           <Text style={styles.statusMessage}>
             {isSuccess
-              ? 'O seu pagamento foi processado com sucesso.'
-              : 'Ocorreu um erro ao processar o seu pagamento.'}
+              ? 'Sua transação foi processada com sucesso. Um comprovativo foi gerado e salvo no seu histórico.'
+              : 'Não foi possível completar a transação. Verifique seu saldo e tente novamente.'}
           </Text>
         </View>
 
+        {/* Detalhes do Recibo */}
         <View style={styles.reciboCard}>
-          <Text style={styles.reciboTitle}>{params.title}</Text>
+          <Text style={styles.reciboTitle}>Comprovativo de Pagamento</Text>
+          
           <View style={styles.reciboRow}>
-            <Text style={styles.reciboLabel}>Referência:</Text>
-            <Text style={styles.reciboValue}>{params.id}</Text>
+            <Text style={styles.reciboLabel}>ID da Transação:</Text>
+            <Text style={styles.reciboValue}>{transactionId}</Text>
           </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.reciboRow}>
+            <Text style={styles.reciboLabel}>Serviço:</Text>
+            <Text style={styles.reciboValue}>{transactionTitle}</Text>
+          </View>
+          
           <View style={styles.reciboRow}>
             <Text style={styles.reciboLabel}>Descrição:</Text>
-            <Text style={styles.reciboValue}>{params.description}</Text>
+            <Text style={styles.reciboValue}>{transactionDescription}</Text>
           </View>
+          
+          <View style={styles.reciboRow}>
+            <Text style={styles.reciboLabel}>Tipo:</Text>
+            <Text style={styles.reciboValue}>{transactionType}</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
           <View style={styles.reciboRow}>
             <Text style={styles.reciboLabel}>Data e Hora:</Text>
             <Text style={styles.reciboValue}>{transactionDate}</Text>
           </View>
-          <View style={styles.reciboRow}>
-            <Text style={styles.reciboLabel}>Tipo:</Text>
-            <Text style={styles.reciboValue}>{params.type}</Text>
-          </View>
+          
           <View style={styles.reciboRow}>
             <Text style={styles.reciboLabel}>Status:</Text>
-            <Text style={styles.reciboValue}>{params.status}</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>
+                {isSuccess ? 'PAGO' : params.status || 'PENDENTE'}
+              </Text>
+            </View>
           </View>
-          <View style={styles.reciboRow}>
-            <Text style={styles.reciboLabel}>Saldo Anterior:</Text>
-            <Text style={styles.reciboValue}>{formatCurrency(saldoAnteriorNum)}</Text>
-          </View>
-          <View style={styles.reciboRow}>
-            <Text style={styles.reciboLabel}>Saldo Atual:</Text>
-            <Text style={styles.reciboValue}>{formatCurrency(saldoAtualNum)}</Text>
-          </View>
+          
+          <View style={styles.divider} />
+          
+          {/* Informações de Saldo (se disponíveis) */}
+          {(saldoAnteriorNum > 0 || saldoAtualNum > 0) && (
+            <>
+              <View style={styles.reciboRow}>
+                <Text style={styles.reciboLabel}>Saldo Anterior:</Text>
+                <Text style={styles.reciboValue}>{formatCurrency(saldoAnteriorNum)}</Text>
+              </View>
+              
+              <View style={styles.reciboRow}>
+                <Text style={styles.reciboLabel}>Valor da Transação:</Text>
+                <Text style={[styles.reciboValue, { color: COLORS.danger }]}>
+                  - {formatCurrency(totalNum)}
+                </Text>
+              </View>
+              
+              <View style={styles.reciboRow}>
+                <Text style={styles.reciboLabel}>Saldo Atual:</Text>
+                <Text style={styles.reciboValue}>{formatCurrency(saldoAtualNum)}</Text>
+              </View>
+              
+              <View style={styles.divider} />
+            </>
+          )}
+          
+          {/* Total */}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total:</Text>
+            <Text style={styles.totalLabel}>Valor Total:</Text>
             <Text style={styles.totalValue}>{formatCurrency(totalNum)}</Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.homeButton} onPress={handleGoHome}>
-          <Text style={styles.homeButtonText}>Voltar ao Início</Text>
-        </TouchableOpacity>
+        {/* Botões de Ação */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.homeButton} 
+            onPress={handleGoHome}
+          >
+            <Text style={styles.homeButtonText}>
+              {isSuccess ? 'Voltar ao Início' : 'Tentar Novamente'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleGoBack}
+          >
+            <Text style={styles.backButtonText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );

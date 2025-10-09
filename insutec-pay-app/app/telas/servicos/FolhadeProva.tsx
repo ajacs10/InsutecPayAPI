@@ -1,3 +1,4 @@
+// /insutec-pay-app/components/FolhaDeProvaScreen.tsx
 import React, { useState, useMemo } from 'react';
 import { 
     View, 
@@ -5,48 +6,51 @@ import {
     ScrollView, 
     TouchableOpacity, 
     ActivityIndicator,
-    Dimensions,
+    Alert,
 } from 'react-native';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons'; 
 import { router } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-
-// CORRIGIDO: O caminho de importação para a pasta 'styles' (três níveis acima)
-import { COLORS } from '../../../styles/_ServicoStyles.style.ts';
-// CORREÇÃO: Utilizando o nome de arquivo de estilos que existe em seu disco
-import { paymentStyles } from '../../../styles/_FolhadeProva.styles.ts'; 
+import { paymentStyles } from '../../../styles/_FolhaDeProvaScreen.styles.ts';
 
 // Constantes
 const SERVICE_TITLE = 'PAGAMENTO DE FOLHA DE PROVA';
-const UNIT_PRICE = 200.00; 
+const UNIT_PRICE = 200.00;
 
-// Função de formatação de moeda (adaptada)
+// Função de formatação de moeda
 const formatCurrencyBR = (value: number) => {
     return `R$ ${value.toFixed(2).replace('.', ',')}`;
 }
 
-// ----------------------------------------------------
-// Componente: Tela de Pagamento
-// ----------------------------------------------------
+// Componente Principal
 export default function FolhaDeProvaScreen() {
     const { aluno } = useAuth();
     const { isDarkMode } = useTheme();
 
     // Estados
-    const [quantidade, setQuantidade] = useState(2); 
+    const [quantidade, setQuantidade] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     
     // Memoização
     const subtotal = useMemo(() => UNIT_PRICE * quantidade, [quantidade]);
     const targetStudentId = aluno?.nr_estudante || 'UNKNOWN';
+    const isButtonDisabled = quantidade === 0 || isLoading;
     
-    // Carrega os estilos dinamicamente
-    // ATENÇÃO: Se o seu arquivo de estilos exportar um nome diferente de 'paymentStyles', ajuste aqui.
-    const styles = paymentStyles(isDarkMode); 
+    // Estilos
+    const styles = paymentStyles(isDarkMode);
 
-    // Ir para pagamento (Função simplificada)
+    // Handlers
     const handleFinalizarPagamento = () => {
+        if (quantidade === 0) {
+            Alert.alert(
+                'Quantidade Inválida',
+                'Selecione pelo menos 1 folha de prova para continuar.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
         setIsLoading(true);
         
         const pedidoItem = {
@@ -57,65 +61,77 @@ export default function FolhaDeProvaScreen() {
             quantidade: quantidade
         };
 
+        console.log('Processando pagamento:', pedidoItem);
+
+        // Simulação de processamento
         setTimeout(() => {
             setIsLoading(false);
-            
-            // CORREÇÃO ESSENCIAL: Uso do caminho completo do arquivo no Expo Router.
-            // A rota deve ser '/app/telas/Success/SuccessScreen.tsx' (sem o 'app' e a extensão)
-            router.push('/telas/Success/SuccessScreen'); 
+            router.push({
+                pathname: '/telas/Success/SuccessScreen',
+                params: {
+                    service: 'Folha de Prova',
+                    amount: subtotal.toString(),
+                    quantity: quantidade.toString()
+                }
+            });
         }, 1500);
     };
 
-    // Aumentar quantidade
     const increaseQuantity = () => {
         setQuantidade(prev => prev + 1);
     };
 
-    // Diminuir quantidade
     const decreaseQuantity = () => {
-        if (quantidade > 1) {
+        if (quantidade > 0) {
             setQuantidade(prev => prev - 1);
         }
     };
 
-    // ----------------------------------------------------
-    // RENDERIZAÇÃO
-    // ----------------------------------------------------
+    // Render
     return (
         <View style={styles.container}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ flexGrow: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
             >
-                {/* Título Principal */}
+                {/* Cabeçalho */}
                 <Text style={styles.headerText}>{SERVICE_TITLE}</Text>
                 <Text style={styles.subHeaderText}>
-                    Selecione a quantidade e finalize o pagamento.
+                    Selecione a quantidade desejada de folhas de prova e finalize o pagamento de forma segura.
                 </Text>
 
-                {/* Card do Item de Pagamento (Folha de Prova) */}
+                {/* Card do Item */}
                 <View style={styles.itemCard}>
                     <View style={styles.itemRow}>
-                        
-                        {/* Detalhes do Item (Esquerda) */}
                         <View style={styles.itemDetails}>
                             <View style={styles.itemIconContainer}>
-                                <MaterialIcons name="school" size={24} color={COLORS.primary} />
+                                <MaterialIcons 
+                                    name="description" 
+                                    size={24} 
+                                    color={COLORS.primary} 
+                                />
                             </View>
-                            <View>
+                            <View style={{ flex: 1 }}>
                                 <Text style={styles.itemName}>Folha de Prova (Unidade)</Text>
-                                <Text style={styles.itemPrice}>{formatCurrencyBR(UNIT_PRICE)}</Text>
+                                <Text style={styles.itemPrice}>{formatCurrencyBR(UNIT_PRICE)} cada</Text>
                             </View>
                         </View>
 
-                        {/* Seletor de Quantidade (Direita) */}
+                        {/* Seletor de Quantidade */}
                         <View style={styles.quantitySelector}>
                             <TouchableOpacity 
-                                style={styles.quantityButton}
+                                style={[
+                                    styles.quantityButton,
+                                    quantidade === 0 && styles.quantityButtonDisabled
+                                ]}
                                 onPress={decreaseQuantity}
-                                disabled={quantidade <= 1 || isLoading}
+                                disabled={quantidade === 0 || isLoading}
                             >
-                                <AntDesign name="minus" size={16} color={quantidade <= 1 ? COLORS.gray : COLORS.textDark} />
+                                <AntDesign 
+                                    name="minus" 
+                                    size={16} 
+                                    color={quantidade === 0 ? COLORS.gray : COLORS.textDark} 
+                                />
                             </TouchableOpacity>
                             
                             <View style={styles.quantityDisplay}>
@@ -132,42 +148,68 @@ export default function FolhaDeProvaScreen() {
                         </View>
                     </View>
                     
-                    {/* Linha do Subtotal dentro do Card (Conforme a Imagem) */}
-                    <View style={{ marginTop: 5 }}>
-                        <Text style={{ fontSize: 14, color: COLORS.subText }}>
-                            Subtotal: {formatCurrencyBR(subtotal)}
+                    {/* Subtotal */}
+                    <View style={styles.subtotalContainer}>
+                        <Text style={styles.subtotalText}>Subtotal:</Text>
+                        <Text style={styles.subtotalValue}>{formatCurrencyBR(subtotal)}</Text>
+                    </View>
+
+                    {/* Aviso quando quantidade for 0 */}
+                    {quantidade === 0 && (
+                        <Text style={styles.warningText}>
+                            Selecione pelo menos 1 folha para continuar
                         </Text>
+                    )}
+                </View>
+
+                {/* Informações Adicionais */}
+                <View style={styles.infoCard}>
+                    <Text style={[styles.itemName, { marginBottom: 10 }]}>
+                        Informações do Pedido
+                    </Text>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.subtotalText}>Nº de Estudante:</Text>
+                        <Text style={styles.subtotalValue}>{targetStudentId}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.subtotalText}>Tipo de Serviço:</Text>
+                        <Text style={styles.subtotalValue}>Folha de Prova</Text>
                     </View>
                 </View>
 
-                {/* Área vazia para preenchimento */}
+                {/* Espaço flexível */}
                 <View style={{ flex: 1 }} />
-
             </ScrollView>
 
-            {/* Rodapé Fixo (Botão e Ícones de Pagamento) */}
+            {/* Rodapé Fixo */}
             <View style={styles.fixedFooter}>
                 <TouchableOpacity
-                    style={styles.finalizarButton}
+                    style={[
+                        styles.finalizarButton,
+                        isButtonDisabled && styles.finalizarButtonDisabled
+                    ]}
                     onPress={handleFinalizarPagamento}
-                    disabled={isLoading}
+                    disabled={isButtonDisabled}
                     activeOpacity={0.8}
                 >
                     {isLoading ? (
                         <ActivityIndicator color={COLORS.white} size="small" />
                     ) : (
-                        <Text style={styles.finalizarButtonText}>
-                            FINALIZAR PAGAMENTO
+                        <Text style={[
+                            styles.finalizarButtonText,
+                            isButtonDisabled && styles.finalizarButtonTextDisabled
+                        ]}>
+                            {quantidade === 0 ? 'SELECIONE A QUANTIDADE' : `PAGAR ${formatCurrencyBR(subtotal)}`}
                         </Text>
                     )}
                 </TouchableOpacity>
                 
-                {/* Ícones de Pagamento (Simulação da Imagem) */}
-                <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
-                    <Text style={{ fontSize: 20, color: COLORS.gray, marginHorizontal: 5 }}>P</Text>
-                    <Text style={{ fontSize: 20, color: COLORS.gray, marginHorizontal: 5 }}>+</Text>
-                    <Text style={{ fontSize: 20, color: COLORS.gray, marginHorizontal: 5 }}>M</Text>
-                    <Text style={{ fontSize: 20, color: COLORS.gray, marginHorizontal: 5 }}>i</Text>
+                {/* Ícones de Métodos de Pagamento */}
+                <View style={styles.paymentIconsContainer}>
+                    <Text style={styles.paymentIcon}>💳</Text>
+                    <Text style={styles.paymentIcon}>📱</Text>
+                    <Text style={styles.paymentIcon}>🏦</Text>
+                    <Text style={styles.paymentIcon}>🔒</Text>
                 </View>
             </View>
         </View>

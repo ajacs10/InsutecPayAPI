@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, Stack } from 'expo-router'; 
-// Substitua estes imports pelos seus caminhos reais
 import { COLORS, sharedStyles } from '../../../styles/_SharedFinance.styles';
 import { carteiraStyles } from '../../../styles/_Carteira.styles';
 import { useFinance } from '../../../components/FinanceContext'; 
@@ -22,7 +21,7 @@ import { formatCurrency } from '../../../src/utils/formatters';
 const { width } = Dimensions.get('window');
 
 // ====================================================================
-// COMPONENTES AUXILIARES (ATLANTIOCARD e SALDOSECTION) - MANTIDOS
+// COMPONENTES AUXILIARES (ATLANTIOCARD e SALDOSECTION)
 // ====================================================================
 
 // Componente de Card Atlântico
@@ -39,7 +38,7 @@ const AtlanticoCard = ({ isDarkMode }: { isDarkMode: boolean }) => {
             }
             return aluno.nome.toUpperCase();
         }
-        return 'ajacs dacosta';
+        return 'NOME DO ESTUDANTE';
     };
 
     const handleFlip = () => {
@@ -82,7 +81,6 @@ const AtlanticoCard = ({ isDarkMode }: { isDarkMode: boolean }) => {
                     zIndex: isFlipped ? 0 : 1,
                 }
             ]}>
-                {/* ... Conteúdo da Frente do Cartão ... */}
                 <View style={carteiraStyles.headerCard}>
                     <View style={carteiraStyles.bankLogoContainer}>
                         <Text style={carteiraStyles.bankName}>INSUTEC PAY</Text>
@@ -126,14 +124,13 @@ const AtlanticoCard = ({ isDarkMode }: { isDarkMode: boolean }) => {
                     zIndex: isFlipped ? 1 : 0,
                 }
             ]}>
-                {/* ... Conteúdo do Verso do Cartão ... */}
                 <View style={carteiraStyles.magneticStrip} />
                 <View style={carteiraStyles.cvvContainer}>
                     <Text style={carteiraStyles.cvvLabel}>CVV</Text>
                     <Text style={carteiraStyles.cvvValue}>123</Text>
                 </View>
                 <Text style={carteiraStyles.cardBackText}>
-                    Cartão Universitário Atlântico - Para uso no sistema Insutec Pay
+                    Cartão Universitário - Para uso no sistema Insutec Pay
                 </Text>
             </Animated.View>
         </TouchableOpacity>
@@ -221,7 +218,7 @@ const SaldoSection = ({
 };
 
 // ====================================================================
-// TELA PRINCIPAL (CARTEIRASCREEN) - FLUXO DE NAVEGAÇÃO APÓS PAGAMENTO AJUSTADO
+// TELA PRINCIPAL (CARTEIRASCREEN)
 // ====================================================================
 export default function CarteiraScreen() {
     const colorScheme = useColorScheme();
@@ -245,41 +242,52 @@ export default function CarteiraScreen() {
     
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // 🛑 CORREÇÃO PRINCIPAL: Garante que o valor total é um número válido (float)
-    // O 'valor_total' deve vir formatado sem separadores de milhar (apenas ponto decimal)
-    // Ex: "75000.00" e não "75.000,00"
-    const valorTotalNum = parseFloat(valor_total || '0') || 0; 
+    // CORREÇÃO: Garante que o valor total é um número válido
+    const valorTotalNum = parseFloat(valor_total?.replace(',', '.') || '0') || 0;
     
-    // Verificação para debug (opcional, ajuda a confirmar o valor)
+    // Debug para verificar valores
     useEffect(() => {
         if (id_transacao_unica && valor_total && descricao) {
-            console.log('--- Debug de Pagamento Recebido ---');
-            console.log('Valor STRING (param):', valor_total);
-            console.log('Valor FLOAT (uso):', valorTotalNum);
-            console.log('Saldo Atual:', saldo);
-            console.log('Resultado da Comparação (Saldo < Valor):', saldo < valorTotalNum);
-            console.log('------------------------------------');
+            console.log('=== DEBUG PAGAMENTO ===');
+            console.log('Valor recebido:', valor_total);
+            console.log('Valor convertido:', valorTotalNum);
+            console.log('Saldo atual:', saldo);
+            console.log('Saldo suficiente:', saldo >= valorTotalNum);
+            console.log('=======================');
         }
     }, [id_transacao_unica, valor_total, descricao, valorTotalNum, saldo]);
 
-    // ✅ FUNÇÃO ATUALIZADA - Com fluxo de navegação simplificado
+    // FUNÇÃO PRINCIPAL DE PAGAMENTO - CORRIGIDA
     const handlePagar = async () => {
+        console.log('🔄 Iniciando processo de pagamento...');
+        
         if (!id_transacao_unica || !valor_total || !descricao) {
             Alert.alert('Erro', 'Informações de pagamento incompletas.');
             return;
         }
 
-        // Verifica o Saldo com o valor CORRIGIDO (float)
+        // Verificação de saldo
         if (valorTotalNum > saldo) {
-            Alert.alert('Erro', 'Saldo insuficiente para realizar esta transação. Por favor, recarregue sua carteira.');
+            Alert.alert(
+                'Saldo Insuficiente', 
+                `Você tem ${formatCurrency(saldo)} mas precisa de ${formatCurrency(valorTotalNum)} para esta transação.`
+            );
             return;
         }
 
         setIsProcessing(true);
         
         try {
+            console.log('📤 Processando pagamento com os dados:', {
+                valor: valorTotalNum,
+                descricao,
+                id_transacao_unica,
+                tipo_servico,
+                estudante_alvo_id
+            });
+
             const success = await processarPagamento(
-                valorTotalNum, // Passando o valor como NUMBER
+                valorTotalNum,
                 descricao,
                 id_transacao_unica,
                 'Cartão Atlântico Universitário+',
@@ -288,31 +296,38 @@ export default function CarteiraScreen() {
             );
 
             if (success) {
-                // ✅ FLUXO LIMPO: Redireciona diretamente para a tela de Sucesso.
-                // A SuccessScreen deve ter o botão "Ver Comprovativo" que usa o id_transacao_unica
+                console.log('✅ Pagamento processado com sucesso! Navegando para tela de sucesso...');
+                
+                // Navega para a tela de sucesso
                 router.replace({
                     pathname: '/telas/Success/SuccessScreen',
                     params: {
                         tipo_servico: tipo_servico || 'OUTRO',
                         descricao: descricao,
                         valor_total: valor_total,
-                        id_transacao_unica: id_transacao_unica
+                        id_transacao_unica: id_transacao_unica,
+                        estudante_alvo_id: estudante_alvo_id || ''
                     }
                 });
             } else {
-                // O `processarPagamento` deve tratar erros internos e mostrar um Alert
-                // Mas garantimos aqui que o usuário seja notificado caso o context retorne false
-                Alert.alert('❌ Falha', 'O pagamento não pôde ser concluído. Verifique o saldo ou tente novamente.');
+                console.log('❌ Falha no processamento do pagamento');
+                Alert.alert(
+                    'Falha no Pagamento', 
+                    'Não foi possível completar o pagamento. Verifique sua conexão e tente novamente.'
+                );
             }
         } catch (error) {
-            console.error('❌ Erro no pagamento:', error);
-            Alert.alert('❌ Erro', 'Ocorreu um erro inesperado. Tente novamente.');
+            console.error('💥 Erro crítico no pagamento:', error);
+            Alert.alert(
+                'Erro', 
+                'Ocorreu um erro inesperado durante o pagamento. Tente novamente.'
+            );
         } finally {
             setIsProcessing(false);
         }
     };
 
-    // ✅ ROTAS CORRIGIDAS - Baseadas na sua estrutura de pastas
+    // Navegação para outras telas
     const handleNavigateToRecibos = () => {
         router.push('/telas/financeiro/RecibosScreen');
     };
@@ -323,7 +338,7 @@ export default function CarteiraScreen() {
 
     return (
         <View style={sharedStyles.container(isDarkMode)}> 
-            {/* Configuração do Header */}
+            {/* Header da tela */}
             <Stack.Screen options={{ 
                 headerShown: true, 
                 title: 'Carteira',
@@ -340,6 +355,7 @@ export default function CarteiraScreen() {
                 contentContainerStyle={carteiraStyles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Header personalizado */}
                 <View style={carteiraStyles.header}>
                     <View>
                         <Text style={sharedStyles.title(isDarkMode)}>Minha Carteira</Text>
@@ -347,13 +363,21 @@ export default function CarteiraScreen() {
                             Olá, {aluno?.nome?.split(' ')[0] || 'Estudante'}!
                         </Text>
                     </View>
-                    <TouchableOpacity style={carteiraStyles.settingsButton}>
+                    <TouchableOpacity 
+                        style={carteiraStyles.settingsButton}
+                        onPress={() => Alert.alert('Configurações', 'Configurações em desenvolvimento.')}
+                    >
                         <Feather name="settings" size={20} color={isDarkMode ? COLORS.textLight : COLORS.textDark} />
                     </TouchableOpacity>
                 </View>
 
+                {/* Cartão Atlântico */}
                 <AtlanticoCard isDarkMode={isDarkMode} />
                 
+                {/* Espaçador */}
+                <View style={carteiraStyles.cardSpacer} />
+
+                {/* Seção de Saldo */}
                 <SaldoSection 
                     isDarkMode={isDarkMode} 
                     saldo={saldo} 
@@ -361,11 +385,11 @@ export default function CarteiraScreen() {
                     onNavigateToComprovativos={handleNavigateToComprovativos}
                 />
 
-                {/* Seção de Confirmação de Pagamento: Só aparece se houver valor_total válido */}
+                {/* Seção de Confirmação de Pagamento */}
                 {valorTotalNum > 0 && (
                     <View style={carteiraStyles.paymentSection(isDarkMode)}>
                         <View style={carteiraStyles.paymentHeader}>
-                            <Ionicons name="card-outline" size={20} color={COLORS.primary} />
+                            <Ionicons name="card-outline" size={30} color={COLORS.primary} />
                             <Text style={sharedStyles.sectionTitle(isDarkMode)}>Confirmar Pagamento</Text>
                         </View>
                         
@@ -393,8 +417,7 @@ export default function CarteiraScreen() {
                                 (isProcessing || valorTotalNum > saldo) && sharedStyles.payButtonDisabled
                             ]}
                             onPress={handlePagar}
-                            // 🛑 Desabilita se estiver processando OU se o saldo for insuficiente
-                            disabled={isProcessing || valorTotalNum > saldo} 
+                            disabled={isProcessing || valorTotalNum > saldo}
                         >
                             {isProcessing ? (
                                 <ActivityIndicator color={COLORS.white} size="small" />
@@ -402,21 +425,31 @@ export default function CarteiraScreen() {
                                 <>
                                     <Feather name="credit-card" size={18} color={COLORS.white} />
                                     <Text style={carteiraStyles.payButtonText}>
-                                        Pagar {formatCurrency(valorTotalNum)}
+                                        {valorTotalNum > saldo ? 'Saldo Insuficiente' : `Pagar ${formatCurrency(valorTotalNum)}`}
                                     </Text>
                                 </>
                             )}
                         </TouchableOpacity>
 
-                        {/* Mensagem de Saldo Insuficiente */}
+                        {/* Mensagem de saldo insuficiente */}
                         {valorTotalNum > saldo && (
-                            <Text style={[carteiraStyles.errorText, { textAlign: 'center', marginTop: 10 }]}>
-                                ❌ Saldo insuficiente! Por favor, recarregue para prosseguir.
+                            <Text style={[sharedStyles.errorText, { textAlign: 'center', marginTop: 10 }]}>
+                                💳 Saldo insuficiente! Recarregue sua carteira para continuar.
                             </Text>
+                        )}
+
+                        {/* Informações de debug (opcional) */}
+                        {__DEV__ && (
+                            <View style={{ marginTop: 15, padding: 10, backgroundColor: isDarkMode ? '#2A2A2A' : '#F5F5F5', borderRadius: 8 }}>
+                                <Text style={{ fontSize: 12, color: isDarkMode ? '#CCC' : '#666', textAlign: 'center' }}>
+                                    🔍 Debug: Valor={valorTotalNum} | Saldo={saldo} | Suficiente={saldo >= valorTotalNum ? 'SIM' : 'NÃO'}
+                                </Text>
+                            </View>
                         )}
                     </View>
                 )}
 
+                {/* Grid de funcionalidades */}
                 <View style={carteiraStyles.featuresGrid}>
                     <TouchableOpacity 
                         style={carteiraStyles.featureItem(isDarkMode)}
@@ -442,8 +475,10 @@ export default function CarteiraScreen() {
                         <Text style={carteiraStyles.featureText(isDarkMode)}>Alertas</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Espaço extra no final */}
+                <View style={{ height: 30 }} />
             </ScrollView>
         </View>
     );
 }
-

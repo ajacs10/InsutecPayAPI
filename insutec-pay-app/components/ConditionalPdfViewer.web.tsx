@@ -1,5 +1,3 @@
-// components/ConditionalPdfViewer.web.tsx
-
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 
@@ -10,7 +8,7 @@ const COLORS = {
     primary: '#1a4a6d',
 };
 
-const ConditionalPdfViewer: React.FC<any> = ({ style }) => (
+const ConditionalPdfViewerWeb: React.FC<any> = ({ style }) => (
     <View style={[styles.placeholderContainer, style]}>
         <Text style={styles.placeholderText}>
             Visualizador de PDF não disponível na Web.
@@ -38,4 +36,5 @@ const styles = StyleSheet.create({
     },
 });
 
-export default ConditionalPdfViewer;
+export default ConditionalPdfViewerWeb;
+

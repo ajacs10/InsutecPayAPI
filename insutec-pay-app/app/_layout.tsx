@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { View, ActivityIndicator, Text, Platform } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { AuthProvider, useAuth } from '../components/AuthContext';
 import { FinanceProvider } from '../components/FinanceContext';
 import { ThemeProvider, useTheme } from './telas/ThemeContext/ThemeContext';
@@ -9,205 +9,217 @@ import CustomSplashScreen from './SplashScreen';
 
 // Importando COLORS
 const COLORS = {
-  primary: '#39FF14',
-  lightBackground: '#F0F2F5',
-  darkBackground: '#0F0F0F',
-  textDark: '#1C1C1C',
-  textLight: '#E0E0E0',
-  subText: '#888888',
-  gray: '#9E9E9E',
-  lightGray: '#E0E0E0',
-  cardDark: '#1F1F1F',
-  cardLight: '#FFFFFF',
+  primary: '#39FF14',
+  lightBackground: '#F0F2F5',
+  darkBackground: '#0F0F0F',
+  textDark: '#1C1C1C',
+  textLight: '#E0E0E0',
+  subText: '#888888',
+  gray: '#9E9E9E',
+  lightGray: '#E0E0E0',
+  cardDark: '#1F1F1F',
+  cardLight: '#FFFFFF',
 };
 
 // --- Cores de Fallback ---
 const DEFAULT_COLORS = {
-  primary: '#0b5394',
-  lightBackground: '#f8f9fa',
-  darkBackground: '#1F1F1F',
-  textDark: '#333',
-  textLight: '#E0E0E0',
+  primary: '#0b5394',
+  lightBackground: '#f8f9fa',
+  darkBackground: '#1F1F1F',
+  textDark: '#333',
+  textLight: '#E0E0E0',
 };
 
 // Obter cores seguras
 const getColors = () => ({
-  primary: COLORS?.primary || DEFAULT_COLORS.primary,
-  lightBackground: COLORS?.lightBackground || DEFAULT_COLORS.lightBackground,
-  darkBackground: COLORS?.darkBackground || DEFAULT_COLORS.darkBackground,
-  textDark: COLORS?.textDark || DEFAULT_COLORS.textDark,
-  textLight: COLORS?.textLight || DEFAULT_COLORS.textLight,
+  primary: COLORS?.primary || DEFAULT_COLORS.primary,
+  lightBackground: COLORS?.lightBackground || DEFAULT_COLORS.lightBackground,
+  darkBackground: COLORS?.darkBackground || DEFAULT_COLORS.darkBackground,
+  textDark: COLORS?.textDark || DEFAULT_COLORS.textDark,
+  textLight: COLORS?.textLight || DEFAULT_COLORS.textLight,
 });
+
+// =========================================================================
+// Componente para carregamento de fontes
+// =========================================================================
+function FontLoader({ children }: { children: React.ReactNode }) {
+  const [loaded, error] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
+
+  const { darkBackground, primary, textLight } = getColors();
+
+  if (!loaded && !error) {
+    console.log('[RootLayout] Carregando fontes...');
+    return (
+      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={primary} />
+        <Text style={{ color: textLight, marginTop: 10 }}>
+          A carregar recursos...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    console.error('[RootLayout] Erro ao carregar fontes:', error);
+    return (
+      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: textLight }}>
+          Erro ao carregar fontes. Tente novamente.
+        </Text>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 // =========================================================================
 // Componente Principal que usa Authentication e Theme
 // =========================================================================
 function AppContent() {
-  const { isDarkMode } = useTheme();
-  const { isLoading, aluno } = useAuth();
-  const pathname = usePathname();
+  const { isDarkMode } = useTheme();
+  const { isLoading, aluno } = useAuth();
+  const pathname = usePathname();
 
-  const { lightBackground, darkBackground, textLight, textDark } = getColors();
+  const { lightBackground, darkBackground } = getColors();
 
-  // Define as cores dinâmicas do Stack
-  const stackBgColor = isDarkMode ? darkBackground : lightBackground;
-  const headerTintColor = isDarkMode ? textLight : textDark;
+  const stackBgColor = isDarkMode ? darkBackground : lightBackground;
 
-  // Rotas públicas que não requerem autenticação
-  const PUBLIC_ROUTES = [
-    '/telas/login/LoginScreen',
-    '/SplashScreen',
-  ];
+  const PUBLIC_ROUTES = [
+    '/telas/login/LoginScreen',
+    '/SplashScreen',
+    '/telas/cadastro/CadastroScreen',
+    '/telas/recuperacao/RecuperarEmailScreen',
+  ];
 
-  // Função para garantir a segurança de rotas
-  const checkAccess = useCallback(() => {
-    const isAuthenticated = !!aluno?.nr_estudante;
-    const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
-    const isIndexRoute = pathname === '/';
+  // Função para garantir a segurança de rotas
+  const checkAccess = useCallback(() => {
+    if (isLoading) return;
 
-    if (!isLoading) {
-      // 1. Não autenticado em rota privada: Redireciona para o login
-      if (!isAuthenticated && !isPublicRoute && !isIndexRoute) {
-        console.log('[AppContent] Não autenticado em rota privada. Redirecionando para Login.');
-        router.replace('/telas/login/LoginScreen');
-      }
-      // 2. Autenticado em rota pública: Redireciona para Home
-      else if (isAuthenticated && (isPublicRoute || isIndexRoute)) {
-        console.log('[AppContent] Autenticado em rota pública. Redirecionando para Home.');
-        router.replace('/telas/home/HomeScreen');
-      }
-    }
-  }, [isLoading, aluno, pathname]);
+    const isAuthenticated = !!aluno?.nr_estudante;
+    const isPublicRoute = PUBLIC_ROUTES.some((route) => 
+      pathname === route || pathname.startsWith(route)
+    );
+    const isIndexRoute = pathname === '/';
 
-  useEffect(() => {
-    checkAccess();
-  }, [checkAccess]);
+    console.log('[AppContent] Verificando acesso:', {
+      pathname,
+      isAuthenticated,
+      isPublicRoute,
+      isIndexRoute,
+      isLoading
+    });
 
-  // Mostrar Splash Screen enquanto carrega (Autenticação)
-  if (isLoading) {
-    console.log('[AppContent] Exibindo CustomSplashScreen (Carregando Autenticação)');
-    return <CustomSplashScreen />;
-  }
+    // 1. Não autenticado em rota privada: Redireciona para o login
+    if (!isAuthenticated && !isPublicRoute && !isIndexRoute) {
+      console.log('[AppContent] Não autenticado em rota privada. Redirecionando para Login.');
+      // Usar setTimeout para evitar conflitos de renderização
+      setTimeout(() => {
+        router.replace('/telas/login/LoginScreen');
+      }, 0);
+    }
+    // 2. Autenticado em rota pública: Redireciona para Home
+    else if (isAuthenticated && (isPublicRoute || isIndexRoute)) {
+      console.log('[AppContent] Autenticado em rota pública. Redirecionando para Home.');
+      // Usar setTimeout para evitar conflitos de renderização
+      setTimeout(() => {
+        router.replace('/telas/home/HomeScreen');
+      }, 0);
+    }
+  }, [isLoading, aluno, pathname]);
 
-  console.log('[AppContent] Renderizando Stack Navigator - Dark Mode:', isDarkMode);
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
 
-  return (
-    <Stack
-      screenOptions={{
-        contentStyle: {
-          backgroundColor: stackBgColor,
-        },
-        headerStyle: {
-          backgroundColor: isDarkMode ? darkBackground : lightBackground,
-          ...(Platform.OS === 'web' ? { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { elevation: 4 }),
-          borderBottomWidth: 0,
-        },
-        headerTintColor,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontFamily: 'SpaceMono',
-          color: headerTintColor,
-        },
-        headerBackTitleVisible: false,
-      }}
-    >
-      {/* Rotas Principais */}
-      <Stack.Screen
-        name="index"
-        options={{
-          headerShown: false,
-          redirect: !aluno ? '/telas/login/LoginScreen' : '/telas/home/HomeScreen',
-        }}
-      />
+  // Mostrar Splash Screen enquanto carrega (Autenticação)
+  if (isLoading) {
+    console.log('[AppContent] Exibindo CustomSplashScreen (Carregando Autenticação)');
+    return <CustomSplashScreen />;
+  }
 
-      {/* Rotas Públicas */}
-      <Stack.Screen name="telas/login/LoginScreen" options={{ headerShown: false }} />
-      <Stack.Screen name="SplashScreen" options={{ headerShown: false }} />
+  console.log('[AppContent] Renderizando Stack Navigator - Dark Mode:', isDarkMode);
 
-      {/* Rotas Autenticadas - Home e Serviços */}
-      <Stack.Screen name="telas/home/HomeScreen" options={{ headerShown: false }} />
-      <Stack.Screen name="telas/servicos/Propina" options={{ title: 'Pagamento de Propina', headerShown: true }} />
-      <Stack.Screen name="telas/servicos/Reconfirmacaomatricula" options={{ title: 'Reconfirmação de Matrícula', headerShown: true }} />
-      <Stack.Screen name="telas/servicos/FolhadeProva" options={{ title: 'Solicitação de Folha de Prova', headerShown: true }} />
-      <Stack.Screen name="telas/servicos/DeclaracaoNota" options={{ title: 'Declaração com Notas', headerShown: true }} />
-      <Stack.Screen name="telas/servicos/DeclaracaoSemNota" options={{ title: 'Declaração sem Notas', headerShown: true }} />
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: stackBgColor,
+        },
+      }}
+    >
+      {/* Rota Index */}
+      <Stack.Screen name="index" />
 
-      {/* Rotas de Pagamento e Serviços */}
-      <Stack.Screen name="telas/ServicoPagamento/ServicoPagamentoScreen" options={{ title: 'Serviços e Pagamentos' }} />
-      <Stack.Screen name="telas/ServicoPagamento/DetalhesPagamentoScreen" options={{ title: 'Detalhes do Pagamento' }} />
+      {/* Splash Screen */}
+      <Stack.Screen name="SplashScreen" />
+      
+      {/* Modal */}
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
 
-      {/* Rotas Financeiras */}
-      <Stack.Screen name="telas/dividas/DividasScreen" options={{ title: 'Minhas Dívidas' }} />
-      <Stack.Screen name="telas/historico/HistoricoScreen" options={{ title: 'Histórico de Pagamentos' }} />
-      <Stack.Screen name="telas/financeiro/CarteiraScreen" options={{ title: 'Minha Carteira' }} />
-      <Stack.Screen name="telas/financeiro/RecibosScreen" options={{ title: 'Histórico de Recibos' }} />
-      <Stack.Screen name="telas/comprovativo/ComprovativoScreen" options={{ title: 'Comprovativo de Pagamento' }} />
-      
-      {/* Rota Removida: telas/historico-comprovantes/HistoricoComprovantesScreen (Causava warning) */}
-      
-      {/* Rotas de Perfil e Notificações */}
-      <Stack.Screen name="telas/perfil/PerfilScreen" options={{ title: 'Meu Perfil' }} />
-      <Stack.Screen name="telas/notificacoes/NotificacoesScreen" options={{ title: 'Notificações' }} />
+      {/* Rotas de Autenticação */}
+      <Stack.Screen name="telas/login/LoginScreen" />
+      <Stack.Screen name="telas/cadastro/CadastroScreen" />
+      <Stack.Screen name="telas/recuperacao/RecuperarEmailScreen" />
 
-      {/* Rotas de Ajuda e Informações */}
-      <Stack.Screen name="telas/verAjuda/verAjudaScreen" options={{ title: 'Ajuda e Suporte', headerShown: true }} />
-      <Stack.Screen name="telas/termos/TermosScreen" options={{ title: 'Termos e Políticas', headerShown: true }} />
-      <Stack.Screen name="telas/termos/SobreScreen" options={{ title: 'Sobre o App', headerShown: true }} />
+      {/* Rotas Autenticadas - Principal */}
+      <Stack.Screen name="telas/home/HomeScreen" />
 
-      {/* Rotas de Transação */}
-      {/* Rota Removida: telas/financeiro/ReciboScreen (singular) (Causava warning, RecibosScreen (plural) permanece) */}
-      
-      {/* Rota de Fallback */}
-      <Stack.Screen name="+not-found" options={{ headerShown: false }} />
-    </Stack>
-  );
+      {/* Rotas de Serviços */}
+      <Stack.Screen name="telas/servicos/Propina" />
+      <Stack.Screen name="telas/servicos/Reconfirmacaomatricula" />
+      <Stack.Screen name="telas/servicos/FolhadeProva" />
+      <Stack.Screen name="telas/servicos/DeclaracaoNota" />
+      <Stack.Screen name="telas/servicos/DeclaracaoSemNota" />
+
+      {/* Rotas de Pagamento */}
+      <Stack.Screen name="telas/ServicoPagamento/ServicoPagamentoScreen" />
+      <Stack.Screen name="telas/ServicoPagamento/DetalhesPagamentoScreen" />
+
+      {/* Rotas Financeiras */}
+      <Stack.Screen name="telas/dividas/DividasScreen" />
+      <Stack.Screen name="telas/historico/HistoricoScreen" />
+      <Stack.Screen name="telas/financeiro/CarteiraScreen" />
+      <Stack.Screen name="telas/financeiro/RecibosScreen" />
+      <Stack.Screen name="telas/comprovativo/ComprovativoScreen" />
+
+      {/* Rotas de Perfil */}
+      <Stack.Screen name="telas/perfil/PerfilScreen" />
+      <Stack.Screen name="telas/notificacoes/NotificacoesScreen" />
+
+      {/* Rotas de Ajuda */}
+      <Stack.Screen name="telas/verAjuda/verAjudaScreen" />
+      <Stack.Screen name="telas/termos/TermosScreen" />
+      <Stack.Screen name="telas/termos/SobreScreen" />
+
+      {/* Rotas de Transação */}
+      <Stack.Screen name="telas/transacao/[id]" />
+      <Stack.Screen name="telas/Success/SuccessScreen" />
+
+      {/* Rota de Fallback */}
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
 }
 
 // =========================================================================
 // Root Layout - Configuração Principal
 // =========================================================================
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  console.log('[RootLayout] Inicializando app...');
 
-  const { darkBackground, primary, textLight } = getColors();
-
-  // Mostra tela de carregamento de fontes
-  if (!loaded && !error) {
-    console.log('[RootLayout] Carregando fontes...');
-    return (
-      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={primary} />
-        <Text style={{ color: textLight, marginTop: 10, fontFamily: 'SpaceMono' }}>
-          A carregar recursos...
-        </Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    console.error('[RootLayout] Erro ao carregar fontes:', error);
-    return (
-      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: textLight, fontFamily: 'SpaceMono' }}>
-          Erro ao carregar fontes. Tente novamente.
-        </Text>
-      </View>
-    );
-  }
-
-  console.log('[RootLayout] Fontes carregadas, inicializando app com Providers...');
-
-  return (
-    <AuthProvider>
-      <ThemeProvider>
-        {/* 🛑 O FinanceProvider DEVE envolver o AppContent */}
-        <FinanceProvider>
-          <AppContent />
-        </FinanceProvider>
-      </ThemeProvider>
-    </AuthProvider>
-  );
+  return (
+    <FontLoader>
+      <AuthProvider>
+        <ThemeProvider>
+          <FinanceProvider>
+            <AppContent />
+          </FinanceProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </FontLoader>
+  );
 }
-

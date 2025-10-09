@@ -1,4 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions, Platform, StatusBar } from 'react-native';
+
+const { width, height } = Dimensions.get('window');
 
 export const COLORS = {
   primary: '#007bff',
@@ -7,6 +9,10 @@ export const COLORS = {
   background: '#f5f5f5',
   white: '#fff',
   black: '#000',
+  lightGray: '#E0E0E0',
+  darkGray: '#424242',
+  error: '#ff3b30',
+  errorBackground: '#ffebee',
 };
 
 export const styles = StyleSheet.create({
@@ -16,33 +22,47 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 30,
     backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   logo: {
     width: 170,
     height: 150,
     borderRadius: 10,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 7,
+    marginBottom: 8,
     textAlign: 'center',
     color: COLORS.black,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 60,
+    marginBottom: 40,
     textAlign: 'center',
     color: COLORS.secondary,
+    lineHeight: 20,
+  },
+  formContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 16,
   },
   input: {
     width: '100%',
     height: 50,
-    borderColor: '#ddd',
+    borderColor: COLORS.lightGray,
     borderWidth: 1,
     borderRadius: 8,
-    marginBottom: 15,
     paddingHorizontal: 15,
     fontSize: 16,
     backgroundColor: COLORS.white,
@@ -52,20 +72,35 @@ export const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  inputError: {
+    borderColor: COLORS.error,
+    backgroundColor: COLORS.errorBackground,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  helperText: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
   button: {
     width: '50%',
-    marginTop: 10,
+    marginTop: 20,
     backgroundColor: COLORS.primary,
     borderRadius: 10,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 8,
-},
-
+  },
   buttonDisabled: {
     backgroundColor: '#a0c0ff',
     elevation: 0,
@@ -79,16 +114,20 @@ export const styles = StyleSheet.create({
   },
   forgotPasswordButton: {
     marginTop: 20,
+    padding: 8,
   },
   forgotPasswordText: {
     color: COLORS.primary,
     fontSize: 14,
+    fontWeight: '500',
+  },
+  footer: {
+    marginTop: 40,
   },
   info: {
-    marginTop: 80,
     textAlign: 'center',
     color: COLORS.gray,
     fontSize: 14,
+    lineHeight: 18,
   },
 });
-

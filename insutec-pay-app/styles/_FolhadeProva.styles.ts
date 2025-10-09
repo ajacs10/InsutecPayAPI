@@ -1,13 +1,8 @@
 // /insutec-pay-app/styles/_FolhaDeProvaScreen.styles.ts
 import { StyleSheet, TextStyle, ViewStyle } from 'react-native';
-// Assumindo que COLORS está neste caminho:
 import { COLORS } from './_ServicoStyles.style.ts'; 
 
 type StyleCreator = (isDarkMode: boolean) => StyleSheet.NamedStyles<any>;
-
-// =========================================================================
-// ESTILOS DE PAGAMENTO (Tela FolhadeProva.tsx)
-// =========================================================================
 
 export const paymentStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
     container: {
@@ -27,6 +22,8 @@ export const paymentStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
         textAlign: 'center',
         color: isDarkMode ? COLORS.subText : COLORS.gray,
         marginBottom: 30,
+        paddingHorizontal: 20,
+        lineHeight: 22,
     } as TextStyle,
     itemCard: {
         backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white,
@@ -48,55 +45,101 @@ export const paymentStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
     itemDetails: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     } as ViewStyle,
     itemIconContainer: {
         width: 48,
         height: 48,
         borderRadius: 8,
-        backgroundColor: '#E6EEFF',
+        backgroundColor: isDarkMode ? '#2A2A3A' : '#E6EEFF',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 15,
         borderWidth: 1,
-        borderColor: '#D0D0FF'
+        borderColor: isDarkMode ? '#3A3A4A' : '#D0D0FF'
     } as ViewStyle,
     itemName: {
         fontSize: 16,
         fontWeight: '600',
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        marginBottom: 4,
     } as TextStyle,
     itemPrice: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+        fontSize: 14,
+        fontWeight: '500',
+        color: COLORS.primary,
     } as TextStyle,
     quantitySelector: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        marginRight: 10,
     } as ViewStyle,
     quantityButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: isDarkMode ? COLORS.cardDark : '#f0f0f0', 
         borderWidth: 1,
         borderColor: isDarkMode ? COLORS.gray : '#E0E0E0',
     } as ViewStyle,
+    quantityButtonDisabled: {
+        opacity: 0.4,
+    } as ViewStyle,
     quantityDisplay: {
-        width: 30,
+        minWidth: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        marginHorizontal: 5,
+        marginHorizontal: 8,
     } as ViewStyle,
     quantityText: {
         fontSize: 16,
         fontWeight: 'bold',
         color: isDarkMode ? COLORS.textLight : COLORS.textDark,
     } as TextStyle,
+    subtotalContainer: {
+        marginTop: 15,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: isDarkMode ? '#3A3A3A' : '#F0F0F0',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    } as ViewStyle,
+    subtotalText: {
+        fontSize: 14,
+        color: isDarkMode ? COLORS.subText : COLORS.gray,
+    } as TextStyle,
+    subtotalValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    } as TextStyle,
+    warningText: {
+        fontSize: 12,
+        color: '#FF6B35',
+        textAlign: 'center',
+        marginTop: 8,
+        fontStyle: 'italic',
+    } as TextStyle,
+    infoCard: {
+        backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white,
+        borderRadius: 12,
+        marginHorizontal: 20,
+        marginTop: 15,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 5,
+    } as ViewStyle,
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    } as ViewStyle,
     fixedFooter: {
         padding: 20,
         backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
@@ -107,64 +150,38 @@ export const paymentStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 8,
+        paddingVertical: 16,
+        borderRadius: 10,
         backgroundColor: COLORS.primary,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    } as ViewStyle,
+    finalizarButtonDisabled: {
+        backgroundColor: isDarkMode ? '#3A3A3A' : '#CCCCCC',
+        shadowOpacity: 0,
+        elevation: 0,
     } as ViewStyle,
     finalizarButtonText: {
         color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
     } as TextStyle,
-});
-
-export const successStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: isDarkMode ? '#1e1e1e' : '#f8f8f8',
+    finalizarButtonTextDisabled: {
+        color: isDarkMode ? '#888888' : '#999999',
+    } as TextStyle,
+    paymentIconsContainer: {
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 40,
+        marginTop: 15,
+        gap: 12,
     } as ViewStyle,
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#E6EEFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 30,
-        borderWidth: 2,
-        borderColor: COLORS.primary,
-    } as ViewStyle,
-    successText: {
+    paymentIcon: {
         fontSize: 20,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginBottom: 10,
-    } as TextStyle,
-    thankYouText: {
-        fontSize: 16,
-        color: COLORS.primary,
-        marginBottom: 30,
-    } as TextStyle,
-    retrievalText: {
-        fontSize: 16,
-        textAlign: 'center',
-        color: isDarkMode ? COLORS.subText : COLORS.gray,
-        lineHeight: 24,
-        marginBottom: 40,
-    } as TextStyle,
-    backButton: {
-        paddingVertical: 14,
-        paddingHorizontal: 40,
-        borderRadius: 8,
-        backgroundColor: COLORS.primary,
-    } as ViewStyle,
-    backButtonText: {
-        color: COLORS.white,
-        fontSize: 16,
+        color: isDarkMode ? '#666666' : '#999999',
         fontWeight: 'bold',
     } as TextStyle,
 });

@@ -1,79 +1,133 @@
-// app/telas/servicos/PropinaScreen.tsx
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 
 // --- IMPORTS DO SEU PROJETO ---
 import { useAuth } from '../../../components/AuthContext';
-// Simule estes imports se necessário
-// import { COLORS, sharedStyles } from '../../../styles/_SharedFinance.styles'; 
-// import { propinaStyles } from '../../../styles/_Propina.styles'; 
-// import { formatCurrency } from '../../../src/utils/formatters';
+import { useTheme } from '../ThemeContext/ThemeContext';
+import { 
+    createPropinaStyles, 
+    sharedFinanceStyles,
+    getMonthItemStyle,
+    getMonthTextStyle,
+    getMonthPriceStyle,
+    COLORS 
+} from '../../../styles/_Propina.styles';
 
-// DUMMY DATA/FUNCTIONS para compilação e estilos
+// DUMMY DATA/FUNCTIONS
 const formatCurrency = (value: number) => value.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });
-const MONTHLY_FEE = 75000.00; // Propina Mensal
-const DUMMY_ANOS = [2024, 2025];
-const DUMMY_MESES_PENDENTES: { [key: number]: string[] } = {
-    '2024': ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio'],
-    '2025': ['Setembro', 'Outubro', 'Novembro', 'Dezembro']
-};
-const COLORS: any = { primary: '#1a4a6d', white: '#fff', textDark: '#333', darkBackground: '#1c1c1c', lightBackground: '#f5f5f5' };
-const sharedStyles: any = { 
-    container: (isDark: boolean) => ({ flex: 1, backgroundColor: isDark ? COLORS.darkBackground : COLORS.lightBackground }), 
-    sectionTitle: (isDark: boolean) => ({ fontSize: 18, fontWeight: '600', color: isDark ? COLORS.white : COLORS.textDark, marginBottom: 10 })
-};
-const propinaStyles: any = {
-    container: { flexGrow: 1, padding: 20, backgroundColor: COLORS.lightBackground },
-    header: { fontSize: 24, fontWeight: 'bold', color: COLORS.primary, marginBottom: 20 },
-    section: { marginBottom: 20, padding: 15, backgroundColor: COLORS.white, borderRadius: 10, elevation: 2 },
-    selectorContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
-    pill: (selected: boolean) => ({ paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, marginBottom: 10, backgroundColor: selected ? COLORS.primary : '#e0e0e0' }),
-    pillText: (selected: boolean) => ({ color: selected ? COLORS.white : COLORS.textDark, fontWeight: 'bold', fontSize: 14 }),
-    monthItem: (selected: boolean) => ({ flex: 1, margin: 5, padding: 15, borderRadius: 8, backgroundColor: selected ? '#2ecc71' : '#f0f0f0', alignItems: 'center', borderWidth: 1, borderColor: selected ? '#2ecc71' : '#ccc' }),
-    monthText: (selected: boolean) => ({ color: selected ? COLORS.white : COLORS.textDark, fontWeight: '500' }),
-    summaryCard: { padding: 15, backgroundColor: '#e6f7ff', borderRadius: 10, borderWidth: 1, borderColor: '#a0d9ff', marginTop: 15 },
-    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-    totalLabel: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary, marginTop: 10 },
-    totalAmount: { fontSize: 24, fontWeight: 'bold', color: COLORS.primary },
-    payButton: { backgroundColor: COLORS.primary, padding: 18, borderRadius: 8, marginTop: 30, flexDirection: 'row', justifyContent: 'center' },
-    payButtonDisabled: { backgroundColor: '#a0a8b3' },
-    payButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' }
-};
-const useColorScheme = () => ({ colorScheme: 'light' });
+const MONTHLY_FEE = 45550.00;
+const FINE_WEEK = 5000.00;
+const FINE_MONTH = 10000.00;
 
+// Mapeamento de meses para números
+const MONTHS_MAP: { [key: string]: number } = {
+    'Novembro': 11, 'Dezembro': 12,
+    'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6, 'Julho': 7
+};
+
+// Meses já pagos pelo usuário (vazio - usuário ainda não pagou nenhum mês)
+const MESES_JA_PAGOS: string[] = [];
 
 export default function PropinaScreen() {
     const router = useRouter();
     const { aluno } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { isDarkMode } = useTheme();
 
     const [loading, setLoading] = useState(false);
     const [targetStudentId] = useState(aluno?.nr_estudante || 'A-12345'); 
-    
-    const [selectedAno, setSelectedAno] = useState<number | null>(DUMMY_ANOS[0]);
     const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
 
-    const mesesPendentes = useMemo(() => {
-        if (!selectedAno) return [];
-        return DUMMY_MESES_PENDENTES[selectedAno] || [];
-    }, [selectedAno]);
+    // Criar estilos dinâmicos baseados no tema
+    const styles = useMemo(() => createPropinaStyles(isDarkMode), [isDarkMode]);
+    const sharedStyles = useMemo(() => sharedFinanceStyles(isDarkMode), [isDarkMode]);
 
-    const getSubtotal = useMemo(() => {
-        return selectedMonths.length * MONTHLY_FEE;
-    }, [selectedMonths]);
+    // Todos os meses do ano acadêmico 2025/2026 (começa em Novembro)
+    const MESES_ACADEMICOS = ['Novembro', 'Dezembro', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho'];
+
+    // Função para verificar se um mês tem multa
+    const getMonthFineInfo = useCallback((month: string) => {
+        const currentDate = new Date();
+        const currentDay = currentDate.getDate();
+        const currentMonth = currentDate.getMonth() + 1;
+        const currentYear = currentDate.getFullYear();
+        
+        const targetMonth = MONTHS_MAP[month];
+        
+        // Determinar o ano do mês acadêmico
+        let academicYear = currentYear;
+        if (targetMonth >= 11) {
+            academicYear = currentYear;
+        } else {
+            academicYear = currentYear + 1;
+        }
+        
+        // Se for mês futuro, não tem multa
+        if (academicYear > currentYear || (academicYear === currentYear && targetMonth > currentMonth)) {
+            return { hasFine: false, isFuture: true, fineAmount: 0 };
+        }
+        
+        // Se for mês atual ou passado
+        if (academicYear === currentYear && targetMonth <= currentMonth) {
+            if (currentDay >= 11) {
+                const weeksLate = Math.ceil((currentDay - 10) / 7);
+                const fineAmount = weeksLate * FINE_WEEK;
+                return { hasFine: true, isFuture: false, fineAmount };
+            } else {
+                return { hasFine: false, isFuture: false, fineAmount: 0 };
+            }
+        }
+        
+        // Mês passado - multa fixa
+        return { hasFine: true, isFuture: false, fineAmount: FINE_MONTH };
+    }, []);
+
+    // Verificar se mês já foi pago
+    const isMonthPaid = useCallback((month: string) => {
+        return MESES_JA_PAGOS.includes(month);
+    }, []);
+
+    // Calcular total com multas
+    const getTotalWithFines = useMemo(() => {
+        let total = 0;
+        selectedMonths.forEach(month => {
+            const fineInfo = getMonthFineInfo(month);
+            total += MONTHLY_FEE + fineInfo.fineAmount;
+        });
+        return total;
+    }, [selectedMonths, getMonthFineInfo]);
+
+    // Calcular total de multas
+    const getTotalFines = useMemo(() => {
+        let fines = 0;
+        selectedMonths.forEach(month => {
+            const fineInfo = getMonthFineInfo(month);
+            fines += fineInfo.fineAmount;
+        });
+        return fines;
+    }, [selectedMonths, getMonthFineInfo]);
 
     const toggleMonth = useCallback((month: string) => {
+        if (isMonthPaid(month)) {
+            Alert.alert('Mês Já Pago', `O mês de ${month} já foi pago. Não é possível pagar novamente.`);
+            return;
+        }
+        
         setSelectedMonths(prev => 
             prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
         );
-    }, []);
+    }, [isMonthPaid]);
 
     const handlePagarComCartao = useCallback(async () => {
-        if (!targetStudentId || !selectedAno || getSubtotal === 0) {
-            Alert.alert('Atenção', 'Por favor, selecione o ano e os meses que deseja pagar.');
+        if (!targetStudentId || selectedMonths.length === 0) {
+            Alert.alert('Atenção', 'Por favor, selecione os meses que deseja pagar.');
+            return;
+        }
+
+        const mesesJaPagosSelecionados = selectedMonths.filter(month => isMonthPaid(month));
+        if (mesesJaPagosSelecionados.length > 0) {
+            Alert.alert('Erro', `Os seguintes meses já foram pagos: ${mesesJaPagosSelecionados.join(', ')}`);
             return;
         }
 
@@ -83,16 +137,18 @@ export default function PropinaScreen() {
             const transacaoId = `PROPINA-${targetStudentId}-${Date.now()}`;
             const mesesDescricao = selectedMonths.join(', ');
 
-            // 🛑 ENVIANDO PARA CARTEIRASCREEN
             router.push({
                 pathname: '/telas/financeiro/CarteiraScreen',
                 params: {
                     id_transacao_unica: transacaoId,
-                    // Garante que o valor é uma string com ponto decimal (75000.00)
-                    valor_total: getSubtotal.toFixed(2), 
-                    descricao: `Propina: ${mesesDescricao} (${selectedAno})`,
+                    valor_total: getTotalWithFines.toFixed(2),
+                    descricao: `Propina: ${mesesDescricao} (Ano Acadêmico 2025/2026)`,
                     tipo_servico: 'MENSALIDADE', 
                     estudante_alvo_id: targetStudentId,
+                    meses_selecionados: selectedMonths.join(','),
+                    ano_academico: '2025/2026',
+                    valor_propina: (MONTHLY_FEE * selectedMonths.length).toFixed(2),
+                    valor_multas: getTotalFines.toFixed(2)
                 },
             });
             
@@ -101,78 +157,129 @@ export default function PropinaScreen() {
         } finally {
             setLoading(false);
         }
-    }, [targetStudentId, selectedAno, selectedMonths, getSubtotal]);
-
+    }, [targetStudentId, selectedMonths, getTotalWithFines, getTotalFines, isMonthPaid]);
 
     const renderMonthItem = ({ item }: { item: string }) => {
         const isSelected = selectedMonths.includes(item);
+        const fineInfo = getMonthFineInfo(item);
+        const isPaid = isMonthPaid(item);
+        
         return (
             <TouchableOpacity 
-                style={propinaStyles.monthItem(isSelected)}
+                style={getMonthItemStyle(styles, isSelected, fineInfo.hasFine, fineInfo.isFuture, isPaid)}
                 onPress={() => toggleMonth(item)}
+                disabled={isPaid}
             >
-                <Text style={propinaStyles.monthText(isSelected)}>{item}</Text>
-                <Text style={propinaStyles.monthText(isSelected)}>{formatCurrency(MONTHLY_FEE)}</Text>
+                <Text style={getMonthTextStyle(styles, isSelected, isPaid)}>{item}</Text>
+                <Text style={getMonthPriceStyle(styles, isSelected, isPaid)}>{formatCurrency(MONTHLY_FEE)}</Text>
+                
+                {fineInfo.hasFine && !isPaid && (
+                    <Text style={styles.fineText}>+ {formatCurrency(fineInfo.fineAmount)}</Text>
+                )}
+                
+                {fineInfo.isFuture && !isPaid && (
+                    <Text style={styles.futureText}>Sem multa</Text>
+                )}
+                
+                {isPaid && (
+                    <Text style={styles.paidText}>JÁ PAGO</Text>
+                )}
             </TouchableOpacity>
         );
     };
 
-    return (
-        <SafeAreaView style={sharedStyles.container(isDarkMode)}>
-            <Stack.Screen options={{ title: 'Pagamento de Propina' }} />
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Processando pagamento...</Text>
+            </View>
+        );
+    }
 
-            <ScrollView contentContainerStyle={propinaStyles.container}>
-                <Text style={propinaStyles.header}>Efetuar Pagamento</Text>
+    return (
+        <SafeAreaView style={sharedStyles.safeArea}>
+            <Stack.Screen options={{ title: 'Pagamento de Propina 2025/2026' }} />
+
+            <ScrollView contentContainerStyle={styles.container}>
+                <Text style={styles.header}>Pagamento de Propina 2025/2026</Text>
                 
                 {/* 1. SELEÇÃO DE ALUNO ALVO */}
-                <View style={propinaStyles.section}>
-                    <Text style={sharedStyles.sectionTitle(isDarkMode)}>Aluno Alvo (ID: {targetStudentId})</Text>
-                    <Text>Pagar propinas para: **{aluno?.nome || 'Você'}**</Text>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Aluno : {targetStudentId}</Text>
+                    <Text style={styles.normalText}>Nome: {aluno?.nome || 'Você'}</Text>
                 </View>
 
-                {/* 2. SELEÇÃO DE ANO LETIVO */}
-                <View style={propinaStyles.section}>
-                    <Text style={sharedStyles.sectionTitle(isDarkMode)}>Ano Letivo</Text>
-                    <View style={propinaStyles.selectorContainer}>
-                        {DUMMY_ANOS.map(ano => (
-                            <TouchableOpacity
-                                key={ano}
-                                style={propinaStyles.pill(selectedAno === ano)}
-                                onPress={() => { setSelectedAno(ano); setSelectedMonths([]); }}
-                            >
-                                <Text style={propinaStyles.pillText(selectedAno === ano)}>{ano}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                {/* 2. INFORMAÇÕES DO ANO ACADÊMICO */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Ano Acadêmico 2025/2026</Text>
+                    <Text style={styles.normalText}>Período: Novembro 2025 a Julho 2026</Text>
+                    <Text style={styles.infoText}>Valor mensal: {formatCurrency(MONTHLY_FEE)}</Text>
+                    
+                    {MESES_JA_PAGOS.length === 0 && (
+                        <View style={styles.successMessage}>
+                            <Text style={styles.successText}>✅ Você pode pagar todos os meses disponíveis</Text>
+                        </View>
+                    )}
                 </View>
 
-                {/* 3. SELEÇÃO DE MESES PENDENTES */}
-                {selectedAno && (
-                    <View style={propinaStyles.section}>
-                        <Text style={sharedStyles.sectionTitle(isDarkMode)}>Meses Pendentes ({mesesPendentes.length})</Text>
-                        
-                        {mesesPendentes.length > 0 ? (
-                            <FlatList
-                                data={mesesPendentes}
-                                renderItem={renderMonthItem}
-                                keyExtractor={item => item}
-                                numColumns={2}
-                                scrollEnabled={false}
-                            />
-                        ) : (
-                            <Text style={{ color: '#007bff' }}>Não há propinas pendentes para este ano.</Text>
-                        )}
-                        
+                {/* 3. SELEÇÃO DE MESES DISPONÍVEIS */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Meses Disponíveis</Text>
+                    <Text style={styles.infoText}>Nov 2025 - Jul 2026</Text>
+                    
+                    <View style={styles.monthsContainer}>
+                        <FlatList
+                            data={MESES_ACADEMICOS}
+                            renderItem={renderMonthItem}
+                            keyExtractor={item => item}
+                            numColumns={3}
+                            scrollEnabled={false}
+                            contentContainerStyle={styles.monthsGrid}
+                        />
                     </View>
-                )}
+                    
+                    {/* Legenda */}
+                    <View style={styles.legendContainer}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: COLORS.success }]} />
+                            <Text style={styles.legendText}>Sem multa</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: COLORS.warning }]} />
+                            <Text style={styles.legendText}>Com multa</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: COLORS.disabled }]} />
+                            <Text style={styles.legendText}>Já pago</Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.infoText}>
+                        💡 Multas aplicadas a partir do dia 11 de cada mês
+                    </Text>
+                </View>
                 
                 {/* 4. RESUMO DA COBRANÇA */}
-                {getSubtotal > 0 && (
-                    <View style={[propinaStyles.section, propinaStyles.summaryCard]}>
-                        <Text style={sharedStyles.sectionTitle(isDarkMode)}>Resumo da Transação</Text>
-                        <View style={propinaStyles.summaryRow}>
-                            <Text style={propinaStyles.totalLabel}>TOTAL A PAGAR:</Text>
-                            <Text style={propinaStyles.totalAmount}>{formatCurrency(getSubtotal)}</Text>
+                {selectedMonths.length > 0 && (
+                    <View style={[styles.section, styles.summaryCard]}>
+                        <Text style={styles.sectionTitle}>Resumo da Transação</Text>
+                        
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.summaryText}>Propina ({selectedMonths.length} meses):</Text>
+                            <Text style={styles.summaryText}>{formatCurrency(MONTHLY_FEE * selectedMonths.length)}</Text>
+                        </View>
+                        
+                        {getTotalFines > 0 && (
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryText}>Multas:</Text>
+                                <Text style={{ color: COLORS.danger, fontSize: 14 }}>+ {formatCurrency(getTotalFines)}</Text>
+                            </View>
+                        )}
+                        
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.totalLabel}>TOTAL A PAGAR:</Text>
+                            <Text style={styles.totalAmount}>{formatCurrency(getTotalWithFines)}</Text>
                         </View>
                     </View>
                 )}
@@ -180,24 +287,23 @@ export default function PropinaScreen() {
                 {/* BOTÃO DE PAGAMENTO */}
                 <TouchableOpacity
                     style={[
-                        propinaStyles.payButton, 
-                        (getSubtotal === 0 || loading) && propinaStyles.payButtonDisabled
+                        styles.payButton, 
+                        (selectedMonths.length === 0 || loading) && styles.payButtonDisabled
                     ]}
                     onPress={handlePagarComCartao}
-                    disabled={getSubtotal === 0 || loading}
+                    disabled={selectedMonths.length === 0 || loading}
                 >
                     {loading ? (
                         <ActivityIndicator color={COLORS.white} size="small" />
                     ) : (
                         <>
                             <Feather name="credit-card" size={20} color={COLORS.white} style={{ marginRight: 10 }} />
-                            <Text style={propinaStyles.payButtonText}>
-                                Pagar {formatCurrency(getSubtotal)}
+                            <Text style={styles.payButtonText}>
+                                Pagar {formatCurrency(getTotalWithFines)}
                             </Text>
                         </>
                     )}
                 </TouchableOpacity>
-
             </ScrollView>
         </SafeAreaView>
     );
