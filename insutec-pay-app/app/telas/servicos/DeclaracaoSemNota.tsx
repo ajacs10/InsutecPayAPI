@@ -1,135 +1,265 @@
-// /telas/servicos/DeclaracaoSemNota.tsx (Atualizado com BI)
-
+// app/telas/servicos/DeclaracaoSemNota.tsx
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-import { styles, COLORS } from '../../../styles/_ServicoStyles.style.ts';
+import {
+  createDeclaracaoStyles,
+  sharedFinanceStyles,
+  COLORS,
+  GRADIENT,
+} from '../../../styles/_DeclaracaoSemNota.styles';
 import { formatCurrency } from '../../../src/utils/formatters';
 
 const SERVICE_NAME = 'Declaração sem Notas';
-const BASE_VALUE = 2000; // Valor ligeiramente menor, como exemplo
+const BASE_VALUE = 2000;
 
-// O BIUploadComponent deve ser definido ou importado em ambos os ficheiros.
-// Para este exemplo, vou colocá-lo aqui novamente para ser autocontido.
-const BIUploadComponent = ({ isDarkMode, onUpload }: { isDarkMode: boolean, onUpload: (success: boolean) => void }) => {
-    const [uploaded, setUploaded] = useState(false);
-    return (
-        <View style={styles.inputContainer(isDarkMode)}>
-            <Text style={styles.label(isDarkMode)}>Documento de Identificação (B.I.)</Text>
-            <TouchableOpacity
-                style={[
-                    styles.uploadButton,
-                    uploaded ? styles.uploadButtonSuccess : styles.uploadButton
-                ]}
-                onPress={() => {
-                    Alert.alert("Anexo Concluído", "O ficheiro do B.I. foi anexado com sucesso para validação.");
-                    setUploaded(true);
-                    onUpload(true);
-                }}
-            >
-                <FontAwesome name={uploaded ? "check-circle" : "upload"} size={20} color={COLORS.white} />
-                <Text style={styles.uploadButtonText}>
-                    {uploaded ? "B.I. Anexado (Verificado)" : "Anexar Foto / PDF do B.I."}
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
+const BIUploadComponent = ({
+  isDarkMode,
+  onUpload,
+}: {
+  isDarkMode: boolean;
+  onUpload: (success: boolean) => void;
+}) => {
+  const [uploaded, setUploaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleUpload = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setUploaded(true);
+      onUpload(true);
+      Alert.alert('Sucesso', 'B.I. anexado com sucesso!');
+    }, 1000);
+  };
+
+  const styles = useMemo(() => createDeclaracaoStyles(isDarkMode), [isDarkMode]);
+
+  return (
+    <View style={styles.uploadSection}>
+      <Text style={styles.sectionTitle(isDarkMode)}>
+        Documento de Identificação (B.I.) *
+      </Text>
+      <TouchableOpacity
+        style={[
+          styles.uploadButton,
+          uploaded ? styles.uploadButtonSuccess : styles.uploadButtonDefault,
+        ]}
+        onPress={handleUpload}
+        disabled={uploaded || loading}
+        activeOpacity={0.9}
+      >
+        <LinearGradient
+          colors={
+            uploaded
+              ? GRADIENT.success(isDarkMode)
+              : loading
+              ? GRADIENT.disabled
+              : GRADIENT.primary(isDarkMode)
+          }
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
+        />
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <>
+            <FontAwesome
+              name={uploaded ? 'check-circle' : 'upload'}
+              size={22}
+              color="#fff"
+            />
+            <Text style={styles.uploadButtonText}>
+              {uploaded
+                ? 'B.I. Anexado (Verificado)'
+                : 'Anexar Foto ou PDF do B.I.'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+      {uploaded && (
+        <Text style={styles.uploadSuccessText(isDarkMode)}>
+          Documento validado com sucesso
+        </Text>
+      )}
+    </View>
+  );
 };
 
 export default function DeclaracaoSemNotaScreen() {
-    const { aluno } = useAuth();
-    const { isDarkMode } = useTheme();
-    
-    const [numeroEstudante, setNumeroEstudante] = useState(aluno?.nr_estudante || '');
-    const [quantity, setQuantity] = useState(1);
-    const [biAnexado, setBiAnexado] = useState(false); // Novo estado
-    const [error, setError] = useState<string | null>(null);
-    const targetStudentId = useMemo(() => numeroEstudante || aluno?.nr_estudante, [numeroEstudante, aluno]);
+  const router = useRouter();
+  const { aluno } = useAuth();
+  const { isDarkMode } = useTheme();
 
-    const adjustQuantity = (increment: boolean) => {
-        setQuantity((prev) => Math.max(1, prev + (increment ? 1 : -1)));
-        setError(null);
+  const [numeroEstudante, setNumeroEstudante] = useState(aluno?.nr_estudante || '');
+  const [quantity, setQuantity] = useState(1);
+  const [biAnexado, setBiAnexado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // CORRIGIDO: styles é um objeto com funções
+  const styles = useMemo(() => createDeclaracaoStyles(isDarkMode), [isDarkMode]);
+  const sharedStyles = useMemo(() => sharedFinanceStyles(isDarkMode), [isDarkMode]);
+
+  const targetStudentId = useMemo(
+    () => numeroEstudante || aluno?.nr_estudante || '',
+    [numeroEstudante, aluno]
+  );
+
+  const adjustQuantity = (increment: boolean) => {
+    setQuantity((prev) => Math.max(1, prev + (increment ? 1 : -1)));
+    setError(null);
+  };
+
+  const subtotal = useMemo(() => BASE_VALUE * quantity, [quantity]);
+
+  const handleAddToDividas = () => {
+    if (!targetStudentId) {
+      setError('Por favor, insira o número do estudante.');
+      return;
+    }
+    if (!biAnexado) {
+      setError('É obrigatório anexar o documento de identificação (B.I.).');
+      return;
+    }
+
+    const item = {
+      id: `DECLARACAO_SEM_NOTA-${targetStudentId}-${Date.now()}`,
+      descricao: `${SERVICE_NAME} (Qtd: ${quantity})`,
+      valor_base: subtotal,
+      valor_total: subtotal,
+      data_vencimento: '2025-12-31',
     };
 
-    const getSubtotal = useMemo(() => BASE_VALUE * quantity, [quantity]);
+    router.push({
+      pathname: '/telas/dividas/DividasScreen',
+      params: {
+        servicosAdicionais: JSON.stringify([item]),
+        alunoId: targetStudentId,
+      },
+    });
+  };
 
-    const handleAddToDividas = () => {
-        if (!targetStudentId) {
-            setError('Por favor, insira o número do estudante.');
-            return;
-        }
-        if (quantity < 1) {
-            setError('Selecione uma quantidade válida.');
-            return;
-        }
-        // NOVA VALIDAÇÃO
-        if (!biAnexado) {
-            setError('É obrigatório anexar o documento de identificação (B.I.).');
-            return;
-        }
+  return (
+    <SafeAreaView style={sharedStyles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Header com gradiente */}
+        <View style={styles.headerContainer}>
+          <LinearGradient
+            colors={GRADIENT.header(isDarkMode)}
+            style={styles.headerGradient}
+          />
+          <Text style={styles.header}>Solicitação de {SERVICE_NAME}</Text>
+        </View>
 
-        const declaracaoParaDividas = {
-            id: `DECLARACAO_SEM_NOTA-${targetStudentId}-${Date.now()}`,
-            descricao: `${SERVICE_NAME} (Qtd: ${quantity})`,
-            valor_base: getSubtotal,
-            valor_total: getSubtotal,
-            data_vencimento: '2025-12-31', 
-        };
+        {/* Aluno */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle(isDarkMode)}>Aluno</Text>
+          <Text style={styles.normalText}>ID: {targetStudentId || '—'}</Text>
+          <Text style={styles.normalText}>Nome: {aluno?.nome || 'Você'}</Text>
+        </View>
 
-        router.push({
-            pathname: '/telas/dividas/DividasScreen',
-            params: {
-                servicosAdicionais: JSON.stringify([declaracaoParaDividas]),
-                alunoId: targetStudentId,
-            },
-        });
-    };
+        {/* Número do Estudante */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle(isDarkMode)}>Número do Estudante</Text>
+          <TextInput
+            style={styles.input}
+            value={numeroEstudante}
+            onChangeText={setNumeroEstudante}
+            placeholder="Ex: A-12345"
+            placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
+            keyboardType="default"
+          />
+        </View>
 
-    return (
-        <ScrollView style={styles.container(isDarkMode)}>
-            <Text style={styles.sectionTitle(isDarkMode)}>{SERVICE_NAME}</Text>
-            <Text style={styles.priceText(isDarkMode)}>Valor por unidade: {formatCurrency(BASE_VALUE)}</Text>
-
-            {/* Input Número do Estudante */}
-            <View style={styles.inputContainer(isDarkMode)}>
-                <Text style={styles.label(isDarkMode)}>Número do Estudante</Text>
-                <TextInput style={styles.input(isDarkMode)} value={numeroEstudante} onChangeText={setNumeroEstudante} placeholder="Digite o número do estudante" keyboardType="numeric" placeholderTextColor={isDarkMode ? COLORS.gray : COLORS.lightGray} />
-            </View>
-            
-            {/* Quantity Selection */}
-            <View style={styles.inputContainer(isDarkMode)}>
-                <Text style={styles.label(isDarkMode)}>Quantidade de Documentos</Text>
-                <View style={styles.quantityContainer(isDarkMode)}>
-                    <TouchableOpacity style={styles.quantityButton(isDarkMode)} onPress={() => adjustQuantity(false)} disabled={quantity <= 1}>
-                        <Text style={styles.quantityButtonText(isDarkMode)}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.quantityText(isDarkMode)}>{quantity}</Text>
-                    <TouchableOpacity style={styles.quantityButton(isDarkMode)} onPress={() => adjustQuantity(true)}>
-                        <Text style={styles.quantityButtonText(isDarkMode)}>+</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Componente de Upload do BI */}
-            <BIUploadComponent 
-                isDarkMode={isDarkMode} 
-                onUpload={setBiAnexado} 
-            />
-
-            {/* Total e Botão */}
-            <Text style={styles.totalText(isDarkMode)}>Total: {formatCurrency(getSubtotal)}</Text>
-            {error && (<Text style={styles.error(isDarkMode)}>{error}</Text>)}
-
+        {/* Quantidade */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle(isDarkMode)}>Quantidade de Documentos</Text>
+          <View style={styles.quantityContainer}>
             <TouchableOpacity
-                style={[styles.payButton, (getSubtotal === 0 || !biAnexado) && styles.payButtonDisabled]}
-                onPress={handleAddToDividas}
-                disabled={getSubtotal === 0 || !biAnexado}
+              style={styles.quantityButton}
+              onPress={() => adjustQuantity(false)}
+              disabled={quantity <= 1}
             >
-                <Text style={styles.payButtonText}>Adicionar ao Carrinho ({formatCurrency(getSubtotal)}) <FontAwesome name="arrow-right" size={16} color={COLORS.white} /></Text>
+              <Text style={styles.quantityButtonText}>-</Text>
             </TouchableOpacity>
-        </ScrollView>
-    );
+            <Text style={styles.quantityText}>{quantity}</Text>
+            <TouchableOpacity
+              style={styles.quantityButton}
+              onPress={() => adjustQuantity(true)}
+            >
+              <Text style={styles.quantityButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Upload B.I. */}
+        <BIUploadComponent isDarkMode={isDarkMode} onUpload={setBiAnexado} />
+
+        {/* Erro */}
+        {error && <Text style={styles.error(isDarkMode)}>{error}</Text>}
+
+        {/* Resumo */}
+        {biAnexado && (
+          <LinearGradient
+            colors={GRADIENT.summaryCard(isDarkMode)}
+            style={[styles.section, styles.summaryCard]}
+          >
+            <Text style={styles.sectionTitle(isDarkMode)}>Resumo</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryText}>
+                {SERVICE_NAME} ({quantity} {quantity === 1 ? 'unid.' : 'unids.'})
+              </Text>
+              <Text style={styles.summaryText}>{formatCurrency(subtotal)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>TOTAL:</Text>
+              <Text style={styles.totalAmount}>{formatCurrency(subtotal)}</Text>
+            </View>
+          </LinearGradient>
+        )}
+
+        {/* Botão Pagar */}
+        <LinearGradient
+          colors={
+            !biAnexado || !targetStudentId
+              ? GRADIENT.payButtonDisabled
+              : GRADIENT.payButton(isDarkMode)
+          }
+          style={[
+            styles.payButton,
+            (!biAnexado || !targetStudentId) && styles.payButtonDisabled,
+          ]}
+        >
+          <TouchableOpacity
+            onPress={handleAddToDividas}
+            disabled={!biAnexado || !targetStudentId}
+            style={styles.payButtonInner}
+            activeOpacity={0.9}
+          >
+            <FontAwesome name="shopping-cart" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.payButtonText}>
+              Adicionar ao Carrinho ({formatCurrency(subtotal)})
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+
+        <Text style={styles.infoText}>
+          * O documento será validado pela secretaria antes da emissão.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }

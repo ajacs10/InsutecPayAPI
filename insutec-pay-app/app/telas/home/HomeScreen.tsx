@@ -28,7 +28,7 @@ import { Servico } from '../../../src/types';
 const LOGO_IMAGE = require('../../../assets/images/logo.png');
 const FALLBACK_PAGAMENTO_PATH = '/telas/ServicoPagamento/ServicoPagamentoScreen';
 
-// --- Mapeamento de Rotas ---
+// --- Mapeamento de Rotas (Inalterado) ---
 const SERVICO_ROTAS_DIRETAS: { [key: string]: string } = {
     Home: '/telas/home/HomeScreen',
     Propina: '/telas/servicos/Propina',
@@ -42,11 +42,11 @@ const SERVICO_ROTAS_DIRETAS: { [key: string]: string } = {
     Comprovativo: '/telas/comprovativo/ComprovativoScreen',
     'Sobre o App': '/telas/termos/SobreScreen',
     'Contactar Suporte': '/telas/verAjuda/verAjudaScreen',
-    Ajuda: '/telas/verAjuda/verAjudaScreen', 
-    Logout: '/telas/login/LoginScreen', 
+    Ajuda: '/telas/verAjuda/verAjudaScreen',
+    Logout: '/telas/login/LoginScreen',
 };
 
-// Menu Lateral
+// Menu Lateral (Inalterado)
 const SERVICOS_MENU_LATERAL: Servico[] = [
     { id: '1', nome: 'Propina', icon: 'money', isMenu: true },
     { id: '3', nome: 'Reconfirmação de Matrícula', icon: 'calendar-check-o', isMenu: true },
@@ -60,7 +60,7 @@ const SERVICOS_MENU_LATERAL: Servico[] = [
     { id: '99', nome: 'Logout', icon: 'sign-out', isMenu: true, isDestructive: true },
 ];
 
-// Serviços de Destaque
+// Serviços de Destaque (Inalterado)
 const SERVICOS_DESTAQUE: Servico[] = [
     { id: '1', nome: 'Propina', icon: 'money' },
     { id: '2', nome: 'Declaração com Notas', icon: 'file-text' },
@@ -68,20 +68,20 @@ const SERVICOS_DESTAQUE: Servico[] = [
     { id: '4', nome: 'Folha de Prova', icon: 'book' },
 ];
 
-// --- FUNÇÕES AUXILIARES ---
+// --- FUNÇÕES AUXILIARES (Inalterado) ---
 const getInitials = (name: string | undefined): string => {
     if (!name) return '?';
     const parts = name.trim().split(/\s+/);
     return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase();
 };
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES (Refinados) ---
 const ServiceListItem: React.FC<{ servico: Servico; onPress: (servico: Servico) => void; isDarkMode: boolean }> =
     React.memo(({ servico, onPress, isDarkMode }) => (
         <TouchableOpacity
             style={styles.serviceListItem({ isDarkMode })}
             onPress={() => onPress(servico)}
-            activeOpacity={0.7}
+            activeOpacity={0.6} // Feedback de clique mais suave
         >
             <View style={styles.serviceListIconContainer({ isDarkMode })}>
                 <FontAwesome name={servico.icon as any} size={24} color={COLORS.accent} />
@@ -91,6 +91,7 @@ const ServiceListItem: React.FC<{ servico: Servico; onPress: (servico: Servico) 
         </TouchableOpacity>
     ));
 
+// MenuOptions (Inalterado, apenas usa `activeOpacity`)
 const MenuOptions: React.FC<{ onClose: () => void; isDarkMode: boolean }> = ({ onClose, isDarkMode }) => {
     const handleAction = (action: string) => {
         let pathKey: string = '';
@@ -115,6 +116,7 @@ const MenuOptions: React.FC<{ onClose: () => void; isDarkMode: boolean }> = ({ o
                     key={action}
                     style={[styles.menuItem(isDarkMode), index === 2 && styles.lastMenuItem]}
                     onPress={() => handleAction(action)}
+                    activeOpacity={0.7} // Feedback de clique
                 >
                     <Ionicons 
                         name={
@@ -127,14 +129,14 @@ const MenuOptions: React.FC<{ onClose: () => void; isDarkMode: boolean }> = ({ o
                         size={20} 
                         color={COLORS.primary} 
                     />
-                    <Text style={styles.menuItemText(isDarkMode)}>Ver {action === 'Regulamento' ? 'Sobre' : action}</Text>
+                   <Text style={styles.menuItemText(isDarkMode)}>Ver {action === 'Regulamento' ? 'Sobre' : action}</Text>
                 </TouchableOpacity>
             ))}
         </View>
     );
 };
 
-// CORREÇÃO: SidebarContent sem overlay problemático
+// SidebarContent (Melhorado para Responsividade e Feedback)
 const SidebarContent: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -143,8 +145,10 @@ const SidebarContent: React.FC<{
     services: Servico[];
 }> = ({ isOpen, onClose, logout, isDarkMode, services }) => {
     const { aluno } = useAuth();
+    
+    // Responsividade: Sidebar ocupa 75% da largura da tela, no máximo 350px
     const windowWidth = Dimensions.get('window').width;
-    const SIDEBAR_WIDTH = windowWidth * 0.75;
+    const SIDEBAR_WIDTH = Math.min(windowWidth * 0.75, 350); 
     
     const leftOffset = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
 
@@ -160,9 +164,10 @@ const SidebarContent: React.FC<{
     const handleLogout = useCallback(async () => {
         try {
             onClose();
+            // Pequeno delay para a animação de fecho do menu
             setTimeout(async () => {
                 await logout();
-            }, 150);
+            }, 150); 
         } catch (error) {
             console.error('[Sidebar] Erro no logout:', error);
             Alert.alert('Erro', 'Não foi possível fazer logout');
@@ -170,23 +175,26 @@ const SidebarContent: React.FC<{
         }
     }, [logout, onClose]);
 
-    // CORREÇÃO: Handler simples e direto
     const handleServicoPress = useCallback((servico: Servico) => {
-        console.log('🔄 Sidebar - Item clicado:', servico.nome);
         
         if (servico.nome === 'Logout') {
-            handleLogout();
+            Alert.alert(
+                'Confirmação',
+                'Tem certeza que deseja sair da sua conta?',
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Sair', onPress: handleLogout, style: 'destructive' },
+                ]
+            );
             return;
         }
 
         const targetPath = SERVICO_ROTAS_DIRETAS[servico.nome];
         
         if (targetPath) {
-            console.log('🚀 Navegando para:', targetPath);
             onClose(); // Fecha sidebar primeiro
             router.push(targetPath as any);
         } else {
-            console.log('❌ Rota não encontrada para:', servico.nome);
             Alert.alert('Aviso', `Funcionalidade "${servico.nome}" em desenvolvimento`);
             onClose();
         }
@@ -198,7 +206,7 @@ const SidebarContent: React.FC<{
                 key={servico.id}
                 style={styles.sidebarItem({ isDarkMode })}
                 onPress={() => handleServicoPress(servico)}
-                activeOpacity={0.7}
+                activeOpacity={0.7} // Feedback de clique
             >
                 <FontAwesome
                     name={servico.icon as any}
@@ -207,7 +215,7 @@ const SidebarContent: React.FC<{
                     style={{ width: 30 }}
                 />
                 <Text
-                    style={[styles.sidebarText({ isDarkMode }), servico.nome === 'Logout' && { color: COLORS.danger }]}
+                    style={[styles.sidebarText({ isDarkMode }), servico.nome === 'Logout' && { color: COLORS.danger, fontWeight: '800' }]}
                 >
                     {servico.nome}
                 </Text>
@@ -218,13 +226,12 @@ const SidebarContent: React.FC<{
 
     return (
         <>
-            {/* CORREÇÃO: Overlay que fecha a sidebar mas permite cliques nela */}
+            {/* Overlay: Fecha a sidebar ao clicar fora, mas é "box-none" para permitir cliques na sidebar */}
             {isOpen && (
                 <TouchableOpacity
                     style={styles.sidebarOverlay}
                     onPress={onClose}
                     activeOpacity={1}
-                    // IMPORTANTE: Permite que cliques na sidebar funcionem
                     pointerEvents="box-none"
                 />
             )}
@@ -236,13 +243,18 @@ const SidebarContent: React.FC<{
                 ]}
             >
                 <View style={styles.sidebarHeader({ isDarkMode })}>
-                    <View style={styles.sidebarAvatar({ isDarkMode })}>
-                        <Text style={styles.sidebarAvatarText({ isDarkMode })}>{getInitials(aluno?.nome)}</Text>
-                    </View>
-                    <Text style={styles.sidebarHeaderText({ isDarkMode })} numberOfLines={1}>
-                        {aluno?.nome || 'Utilizador'}
-                    </Text>
-                    <Text style={styles.sidebarHeaderSubtitle({ isDarkMode })}>{aluno?.nr_estudante || 'Sem ID'}</Text>
+                    <TouchableOpacity 
+                        onPress={() => handleServicoPress({ id: '7', nome: 'Perfil', icon: 'user' })}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.sidebarAvatar({ isDarkMode })}>
+                            <Text style={styles.sidebarAvatarText({ isDarkMode })}>{getInitials(aluno?.nome)}</Text>
+                        </View>
+                        <Text style={styles.sidebarHeaderText({ isDarkMode })} numberOfLines={1}>
+                            {aluno?.nome || 'Utilizador'}
+                        </Text>
+                        <Text style={styles.sidebarHeaderSubtitle({ isDarkMode })}>{aluno?.nr_estudante || 'Sem ID'}</Text>
+                    </TouchableOpacity>
                 </View>
                 
                 <ScrollView 
@@ -267,6 +279,7 @@ export default function HomeScreen() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isBalanceVisible, setIsBalanceVisible] = useState(true); // Novo estado para visibilidade
     const pathname = usePathname();
 
     // Efeitos
@@ -300,6 +313,11 @@ export default function HomeScreen() {
         setShowMenu((prev) => !prev);
         setIsSidebarOpen(false); 
     }, []);
+    
+    // Novo Handler para Alternar Visibilidade do Saldo
+    const toggleBalanceVisibility = useCallback(() => {
+        setIsBalanceVisible((prev) => !prev);
+    }, []);
 
     const navigateToService = useCallback((servicoNome: string) => {
         const targetPath = SERVICO_ROTAS_DIRETAS[servicoNome];
@@ -309,7 +327,7 @@ export default function HomeScreen() {
         } else {
             Alert.alert('Aviso', `Funcionalidade "${servicoNome}" em desenvolvimento`);
             if (servicoNome !== 'Home') {
-                 router.push(FALLBACK_PAGAMENTO_PATH as any);
+                    router.push(FALLBACK_PAGAMENTO_PATH as any);
             }
         }
         setIsSidebarOpen(false);
@@ -331,6 +349,7 @@ export default function HomeScreen() {
         hour12: false,
     }), []);
 
+    // Memoized Styles (mantido para otimização, mas a lógica de estilos foi ajustada no .ts)
     const memoizedStyles = useMemo(
         () => ({
             header: styles.header({ isDarkMode }),
@@ -344,7 +363,7 @@ export default function HomeScreen() {
         [isDarkMode]
     );
 
-    // Loading state
+    // Loading state (Inalterado)
     if (isLoading || !aluno) {
         return (
             <View style={{ 
@@ -373,7 +392,7 @@ export default function HomeScreen() {
                 translucent={true} 
             />
             
-            {/* Header */}
+            {/* Header (Inalterado) */}
             <View style={[
                 memoizedStyles.header, 
                 styles.headerAndroidPadding 
@@ -383,7 +402,7 @@ export default function HomeScreen() {
                         <Image source={LOGO_IMAGE} style={styles.logoImage} resizeMode="contain" />
                     </View>
                     
-                    <View>
+                    <View style={styles.greetingTextWrapper}> {/* Novo wrapper para flexibilidade */}
                         <Text style={styles.appGreeting({ isDarkMode })} numberOfLines={1}>
                             Olá, {firstName}
                         </Text>
@@ -393,10 +412,18 @@ export default function HomeScreen() {
                     </View>
                 </View>
                 <View style={styles.headerRightButtons}>
-                    <TouchableOpacity onPress={toggleSidebar} style={styles.headerButton}>
+                    <TouchableOpacity 
+                        onPress={toggleSidebar} 
+                        style={styles.headerButton}
+                        activeOpacity={0.7}
+                    >
                         <Ionicons name="menu" size={30} color={isDarkMode ? COLORS.textLight : COLORS.textDark} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={toggleMenu} style={styles.headerButton}>
+                    <TouchableOpacity 
+                        onPress={toggleMenu} 
+                        style={styles.headerButton}
+                        activeOpacity={0.7}
+                    >
                         <Ionicons name="ellipsis-vertical-outline" size={30} color={isDarkMode ? COLORS.textLight : COLORS.textDark} />
                     </TouchableOpacity>
                 </View>
@@ -413,17 +440,29 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 
-                {/* Saldo/Wallet */}
+                {/* Saldo/Wallet - COM INTERAÇÃO */}
                 <View style={memoizedStyles.saldoContainer}>
-                    <Text style={styles.paymentSubtitle({ isDarkMode })}>Pagamento de Serviços Universitários</Text>
+                    <Text style={styles.paymentSubtitle({ isDarkMode })}>Pagamento de Serviços para Alunos</Text>
                     <View style={styles.balanceHeader}>
                         <Text style={styles.saldoTitle({ isDarkMode })}>Saldo Disponível</Text>
-                        <Ionicons name="eye-off-outline" size={20} color={isDarkMode ? COLORS.subText : COLORS.gray} />
+                        <TouchableOpacity 
+                            onPress={toggleBalanceVisibility} 
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons 
+                                name={isBalanceVisible ? 'eye-outline' : 'eye-off-outline'} 
+                                size={22} 
+                                color={isDarkMode ? COLORS.subText : COLORS.gray} 
+                            />
+                        </TouchableOpacity>
                     </View>
-                    <Text style={styles.saldoValue({ isDarkMode })}>{formatCurrency(saldo)}</Text>
+                    <Text style={styles.saldoValue({ isDarkMode })}>
+                        {isBalanceVisible ? formatCurrency(saldo) : '***,** Kz'} 
+                    </Text>
                     <TouchableOpacity 
                         style={styles.payButton({ isDarkMode })} 
                         onPress={() => handleMainServicoPress(SERVICOS_DESTAQUE[0])}
+                        activeOpacity={0.7}
                     >
                         <Text style={styles.payButtonText({ isDarkMode })}>Pagar Propina</Text>
                     </TouchableOpacity>
@@ -444,7 +483,7 @@ export default function HomeScreen() {
                     </View>
                 </View>
                 
-                {/* Botão de Reset Temporário */}
+                {/* Botão de Reset Temporário (Inalterado) */}
                 <TouchableOpacity 
                     onPress={resetSaldo} 
                     style={{ 
@@ -454,6 +493,7 @@ export default function HomeScreen() {
                         margin: 20, 
                         alignItems: 'center' 
                     }}
+                    activeOpacity={0.7}
                 >
                     <Text style={{ color: COLORS.white, fontWeight: 'bold' }}>
                         CLIQUE AQUI PARA OBTER $5$ BILHÕES (REMOVER DEPOIS)
@@ -463,39 +503,75 @@ export default function HomeScreen() {
                 <View style={{ height: 80 }} />
             </ScrollView>
 
-            {/* Navegação Inferior */}
+            {/* Navegação Inferior (Adicionado feedback ativo/inativo) */}
             <View style={memoizedStyles.bottomNavBar}>
+                {/* Home */}
                 <TouchableOpacity 
                     style={styles.navBarItem} 
                     onPress={() => handleBottomNavPress('Home')}
+                    activeOpacity={0.7}
                 >
-                    <Ionicons name="home" size={26} color={COLORS.primary} />
-                    <Text style={[styles.navBarText({ isDarkMode }), { color: COLORS.primary }]}>Home</Text>
+                    <Ionicons 
+                        name={pathname === SERVICO_ROTAS_DIRETAS.Home ? 'home' : 'home-outline'} 
+                        size={26} 
+                        color={pathname === SERVICO_ROTAS_DIRETAS.Home ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray)} 
+                    />
+                    <Text style={[
+                        styles.navBarText({ isDarkMode }), 
+                        { color: pathname === SERVICO_ROTAS_DIRETAS.Home ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray) }
+                    ]}>Home</Text>
                 </TouchableOpacity>
+                {/* Carteira */}
                 <TouchableOpacity 
                     style={styles.navBarItem} 
                     onPress={() => handleBottomNavPress('Carteira')}
+                    activeOpacity={0.7}
                 >
-                    <Ionicons name="wallet-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
-                    <Text style={styles.navBarText({ isDarkMode })}>Carteira</Text>
+                    <Ionicons 
+                        name={pathname === SERVICO_ROTAS_DIRETAS.Carteira ? 'wallet' : 'wallet-outline'} 
+                        size={26} 
+                        color={pathname === SERVICO_ROTAS_DIRETAS.Carteira ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray)} 
+                    />
+                    <Text style={[
+                        styles.navBarText({ isDarkMode }), 
+                        { color: pathname === SERVICO_ROTAS_DIRETAS.Carteira ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray) }
+                    ]}>Carteira</Text>
                 </TouchableOpacity>
+                {/* Perfil */}
                 <TouchableOpacity 
                     style={styles.navBarItem} 
                     onPress={() => handleBottomNavPress('Perfil')}
+                    activeOpacity={0.7}
                 >
-                    <Ionicons name="person-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
-                    <Text style={styles.navBarText({ isDarkMode })}>Perfil</Text>
+                    <Ionicons 
+                        name={pathname === SERVICO_ROTAS_DIRETAS.Perfil ? 'person' : 'person-outline'} 
+                        size={26} 
+                        color={pathname === SERVICO_ROTAS_DIRETAS.Perfil ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray)} 
+                    />
+                    <Text style={[
+                        styles.navBarText({ isDarkMode }), 
+                        { color: pathname === SERVICO_ROTAS_DIRETAS.Perfil ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray) }
+                    ]}>Perfil</Text>
                 </TouchableOpacity>
+                {/* Histórico */}
                 <TouchableOpacity 
                     style={styles.navBarItem} 
                     onPress={() => handleBottomNavPress('Histórico')}
+                    activeOpacity={0.7}
                 >
-                    <Ionicons name="time-outline" size={26} color={isDarkMode ? COLORS.textLight : COLORS.gray} />
-                    <Text style={styles.navBarText({ isDarkMode })}>Histórico</Text>
+                    <Ionicons 
+                        name={pathname === SERVICO_ROTAS_DIRETAS.Histórico ? 'time' : 'time-outline'} 
+                        size={26} 
+                        color={pathname === SERVICO_ROTAS_DIRETAS.Histórico ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray)} 
+                    />
+                    <Text style={[
+                        styles.navBarText({ isDarkMode }), 
+                        { color: pathname === SERVICO_ROTAS_DIRETAS.Histórico ? COLORS.primary : (isDarkMode ? COLORS.textLight : COLORS.gray) }
+                    ]}>Histórico</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Sidebar - CORRIGIDA */}
+            {/* Sidebar */}
             <SidebarContent
                 isOpen={isSidebarOpen}
                 onClose={toggleSidebar}

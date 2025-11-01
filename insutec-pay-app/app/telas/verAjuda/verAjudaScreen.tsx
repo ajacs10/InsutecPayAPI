@@ -1,240 +1,234 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
+// app/telas/verAjuda/VerAjudaScreen.tsx
+import React, { useState, useRef, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
   Linking,
   Animated,
   Easing,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Keyboard,
+  Alert,
 } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons'; // ÍCONES REAIS
 import { useTheme } from '../ThemeContext/ThemeContext';
 import { useRouter } from 'expo-router';
-import { styles } from '../../../styles/_VerAjuda.styles';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+import {
+  createAjudaStyles,
+  sharedStyles,
+  COLORS,
+  GRADIENT,
+} from '../../../styles/_VerAjuda.styles';
+
+const { width } = Dimensions.get('window');
+const isSmall = width < 380;
 
 // =========================================================================
-// Dados de Contato Angolanos
+// Contato Oficial
 // =========================================================================
-const CONTACT_INFO = {
+const CONTACT = {
   PHONE: '923456789',
   WHATSAPP: '244923456789',
   EMAIL: 'suporte@insutec.co.ao',
 };
 
 // =========================================================================
-// Componentes Inovadores
+// Componentes com Ícones Reais
 // =========================================================================
 
-interface AnimatedHelpItemProps {
-  icon: string;
-  text: string;
-  subtitle?: string;
-  onPress: () => void;
-  isDarkMode: boolean;
-  index: number;
-  gradient?: string[];
-}
-
-const AnimatedHelpItem: React.FC<AnimatedHelpItemProps> = ({ 
-  icon, 
-  text, 
-  subtitle,
-  onPress, 
-  isDarkMode, 
-  index,
-  gradient 
-}) => {
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.sequence([
-      Animated.delay(index * 100),
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  }, []);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  return (
-    <Animated.View
-      style={{
-        opacity: opacityAnim,
-        transform: [{ scale: scaleAnim }],
-      }}
-    >
-      <TouchableOpacity
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={onPress}
-        activeOpacity={0.8}
-        style={styles.helpItemContainer(isDarkMode, gradient)}
-      >
-        <View style={styles.helpItemIconContainer}>
-          <Text style={styles.helpItemIcon}>{icon}</Text>
-        </View>
-        
-        <View style={styles.helpItemTextContainer}>
-          <Text style={styles.helpItemText(isDarkMode)}>{text}</Text>
-          {subtitle && (
-            <Text style={styles.helpItemSubtitle(isDarkMode)}>{subtitle}</Text>
-          )}
-        </View>
-        
-        <View style={styles.helpItemArrowContainer}>
-          <View style={styles.helpItemArrowCircle(isDarkMode)}>
-            <Text style={styles.helpItemArrow}>{'›'}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
-// Componente de Header com Gradiente Animado - DEFINIDO CORRETAMENTE
-const AnimatedHeader: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
+const AnimatedHeader = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   React.useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 600,
+        duration: 700,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
+  const styles = useMemo(() => createAjudaStyles(isDarkMode), [isDarkMode]);
+
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.headerContainer(isDarkMode),
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }
+        styles.headerContainer,
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}
     >
-      <View style={styles.headerBackground} />
-      
+      <LinearGradient
+        colors={GRADIENT.header(isDarkMode)}
+        style={styles.headerGradient}
+      />
       <View style={styles.headerContent}>
         <View style={styles.headerIcon}>
-          <Text style={styles.headerIconText}>💎</Text>
+          <FontAwesome5 name="headset" size={28} color="#fff" />
         </View>
-        
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle(isDarkMode)}>
-            Central de Ajuda
-          </Text>
-          <Text style={styles.headerSubtitle(isDarkMode)}>
-            Suporte 24/7 para você
-          </Text>
-        </View>
-        
-        <View style={styles.headerDecoration}>
-          <View style={styles.decorationCircle} />
-          <View style={styles.decorationCircle} />
-          <View style={styles.decorationCircle} />
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>Central de Ajuda</Text>
+          <Text style={styles.headerSubtitle}>Suporte 24/7 • Rápido e Eficaz</Text>
         </View>
       </View>
     </Animated.View>
   );
 };
 
-// Componente de Search Bar
-const SearchBar: React.FC<{ 
-  isDarkMode: boolean; 
+const SearchBar = ({
+  searchQuery,
+  onSearchChange,
+  isDarkMode,
+}: {
   searchQuery: string;
   onSearchChange: (text: string) => void;
-}> = ({ isDarkMode, searchQuery, onSearchChange }) => {
+  isDarkMode: boolean;
+}) => {
+  const [focused, setFocused] = useState(false);
+  const styles = useMemo(() => createAjudaStyles(isDarkMode), [isDarkMode]);
+
   return (
-    <View style={styles.searchContainer(isDarkMode)}>
-      <View style={styles.searchIcon}>
-        <Text style={styles.searchIconText}>🔍</Text>
-      </View>
-      <Text style={styles.searchInput(isDarkMode)}>
-        {searchQuery || 'Buscar ajuda...'}
-      </Text>
+    <View style={[styles.searchContainer, focused && styles.searchFocused]}>
+      <FontAwesome5 name="search" size={18} color={focused ? COLORS.primary : '#888'} />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar ajuda, dúvidas, serviços..."
+        placeholderTextColor="#888"
+        value={searchQuery}
+        onChangeText={onSearchChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        returnKeyType="search"
+        onSubmitEditing={Keyboard.dismiss}
+      />
+      {searchQuery.length > 0 && (
+        <TouchableOpacity onPress={() => onSearchChange('')}>
+          <FontAwesome5 name="times-circle" size={18} color="#888" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
-// Componente de Contact Quick Actions
-const QuickContactActions: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
-  const quickActions = [
-    { icon: '📱', label: 'WhatsApp', onPress: () => handleWhatsApp() },
-    { icon: '📞', label: 'Ligar', onPress: () => handleCall() },
-    { icon: '📧', label: 'Email', onPress: () => handleEmail() },
-  ];
+const AnimatedHelpCard = ({
+  icon, // agora é string do FontAwesome5
+  title,
+  subtitle,
+  onPress,
+  gradient,
+  index,
+  isDarkMode,
+}: {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  gradient?: string[];
+  index: number;
+  isDarkMode: boolean;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const handleCall = () => {
-    Linking.openURL(`tel:+244${CONTACT_INFO.PHONE}`);
+  React.useEffect(() => {
+    Animated.sequence([
+      Animated.delay(index * 120),
+      Animated.parallel([
+        Animated.timing(opacityAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.97, friction: 8, useNativeDriver: true }).start();
   };
 
-  const handleWhatsApp = () => {
-    const message = 'Olá, preciso de ajuda com a app Insutec Pay.';
-    const url = `whatsapp://send?phone=${CONTACT_INFO.WHATSAPP}&text=${encodeURIComponent(message)}`;
-    Linking.openURL(url).catch(() => {
-      alert('Por favor, instale o WhatsApp ou ligue para o suporte.');
-    });
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }).start();
   };
 
-  const handleEmail = () => {
-    Linking.openURL(`mailto:${CONTACT_INFO.EMAIL}`);
-  };
+  const styles = useMemo(() => createAjudaStyles(isDarkMode), [isDarkMode]);
 
   return (
-    <View style={styles.quickActionsContainer}>
-      <Text style={styles.quickActionsTitle(isDarkMode)}>Contato Rápido</Text>
-      <View style={styles.quickActionsGrid}>
-        {quickActions.map((action, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.quickActionButton(isDarkMode)}
-            onPress={action.onPress}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.quickActionIcon}>{action.icon}</Text>
-            <Text style={styles.quickActionLabel(isDarkMode)}>{action.label}</Text>
+    <Animated.View style={{ opacity: opacityAnim, transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        activeOpacity={0.9}
+        style={styles.cardContainer}
+      >
+        <LinearGradient
+          colors={gradient || GRADIENT.card(isDarkMode)}
+          style={styles.cardGradient}
+        />
+        <View style={styles.cardContent}>
+          <View style={styles.cardIcon}>
+            <FontAwesome5 name={icon} size={22} color={COLORS.primary} />
+          </View>
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle(isDarkMode)}>{title}</Text>
+            {subtitle && <Text style={styles.cardSubtitle(isDarkMode)}>{subtitle}</Text>}
+          </View>
+          <FontAwesome5 name="chevron-right" size={18} color={isDarkMode ? '#ccc' : '#666'} />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const QuickContact = ({ isDarkMode }: { isDarkMode: boolean }) => {
+  const styles = useMemo(() => createAjudaStyles(isDarkMode), [isDarkMode]);
+
+  const actions = [
+    {
+      icon: 'whatsapp',
+      label: 'WhatsApp',
+      color: '#25D366',
+      onPress: () => {
+        const msg = 'Olá, preciso de ajuda com o Insutec Pay.';
+        Linking.openURL(`whatsapp://send?phone=${CONTACT.WHATSAPP}&text=${encodeURIComponent(msg)}`).catch(() => {
+          Alert.alert('Erro', 'WhatsApp não instalado.');
+        });
+      },
+    },
+    {
+      icon: 'phone',
+      label: 'Ligar',
+      color: COLORS.primary,
+      onPress: () => Linking.openURL(`tel:+244${CONTACT.PHONE}`),
+    },
+    {
+      icon: 'envelope',
+      label: 'Email',
+      color: '#e74c3c',
+      onPress: () => Linking.openURL(`mailto:${CONTACT.EMAIL}`),
+    },
+  ];
+
+  return (
+    <View style={styles.quickSection}>
+      <Text style={styles.sectionTitle(isDarkMode)}>Contato Imediato</Text>
+      <View style={styles.quickGrid}>
+        {actions.map((action, i) => (
+          <TouchableOpacity key={i} style={styles.quickButton} onPress={action.onPress}>
+            <LinearGradient
+              colors={[action.color + '20', action.color + '40']}
+              style={styles.quickButtonGradient}
+            />
+            <FontAwesome5 name={action.icon} size={24} color={action.color} />
+            <Text style={styles.quickLabel(isDarkMode)}>{action.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -250,192 +244,146 @@ export default function VerAjudaScreen() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSection, setActiveSection] = useState<'help' | 'info'>('help');
+  const [activeTab, setActiveTab] = useState<'help' | 'info'>('help');
 
-  // Função de navegação
-  const navigateTo = (screen: string) => {
-    console.log(`[NAV] Navegar para: ${screen}`);
-    router.push(screen as any);
-  };
+  const styles = useMemo(() => createAjudaStyles(isDarkMode), [isDarkMode]);
+  const shared = useMemo(() => sharedStyles(isDarkMode), [isDarkMode]);
 
-  // Dados das seções
-  const helpSections = [
+  const navigate = (path: string) => router.push(path);
+
+  const helpData = [
     {
-      title: 'Suporte Imediato',
+      title: 'Suporte Rápido',
       items: [
-        { 
-          icon: '💬', 
-          text: 'Perguntas Frequentes', 
-          subtitle: 'Respostas rápidas para dúvidas comuns',
-          onPress: () => navigateTo('/telas/verAjuda/FaqScreen'),
-          gradient: ['#667eea', '#764ba2']
+        {
+          icon: 'question-circle', // ÍCONE REAL
+          title: 'Perguntas Frequentes',
+          subtitle: 'Dúvidas comuns resolvidas',
+          onPress: () => navigate('/telas/verAjuda/FaqScreen'),
+          gradient: ['#667eea', '#764ba2'],
         },
-        { 
-          icon: '🎫', 
-          text: 'Abrir Ticket de Suporte', 
-          subtitle: 'Problemas específicos? Vamos ajudar',
-          onPress: () => navigateTo('/telas/verAjuda/NovoTicketScreen'),
-          gradient: ['#f093fb', '#f5576c']
+        {
+          icon: 'ticket-alt', // ÍCONE REAL
+          title: 'Abrir Ticket',
+          subtitle: 'Suporte personalizado',
+          onPress: () => navigate('/telas/verAjuda/NovoTicketScreen'),
+          gradient: ['#f093fb', '#f5576c'],
         },
-      ]
+      ],
     },
-    {
-      title: 'Canais de Atendimento',
-      items: [
-        { 
-          icon: '📱', 
-          text: 'WhatsApp Business', 
-          subtitle: 'Suporte rápido via mensagem',
-          onPress: () => handleWhatsApp(),
-          gradient: ['#4facfe', '#00f2fe']
-        },
-        { 
-          icon: '📞', 
-          text: 'Telefone Direto', 
-          subtitle: `+244 ${CONTACT_INFO.PHONE}`,
-          onPress: () => handleCall(),
-          gradient: ['#43e97b', '#38f9d7']
-        },
-        { 
-          icon: '📧', 
-          text: 'Email Corporativo', 
-          subtitle: CONTACT_INFO.EMAIL,
-          onPress: () => handleEmail(),
-          gradient: ['#fa709a', '#fee140']
-        },
-      ]
-    }
   ];
 
-  const infoSections = [
+  const infoData = [
     {
-      title: 'Informações do App',
+      title: 'Sobre o App',
       items: [
-        { 
-          icon: 'ℹ️', 
-          text: 'Sobre o Aplicativo', 
-          subtitle: 'Versão 52 • Insutec Pay',
-          onPress: () => navigateTo('/telas/termos/SobreScreen'),
-          gradient: ['#a8edea', '#fed6e3']
+        {
+          icon: 'info-circle', // ÍCONE REAL
+          title: 'Sobre o Insutec Pay',
+          subtitle: 'Versão 52 • 2025',
+          onPress: () => navigate('/telas/termos/SobreScreen'),
+          gradient: ['#a8edea', '#fed6e3'],
         },
-        { 
-          icon: '⚖️', 
-          text: 'Termos e Privacidade', 
-          subtitle: 'Nossas políticas e termos de uso',
-          onPress: () => navigateTo('/telas/termos/TermosScreen'),
-          gradient: ['#d4fc79', '#96e6a1']
+        {
+          icon: 'shield-alt', // ÍCONE REAL
+          title: 'Termos e Privacidade',
+          subtitle: 'Segurança e conformidade',
+          onPress: () => navigate('/telas/termos/TermosScreen'),
+          gradient: ['#d4fc79', '#96e6a1'],
         },
-      ]
-    }
+      ],
+    },
   ];
 
-  const handleCall = () => {
-    Linking.openURL(`tel:+244${CONTACT_INFO.PHONE}`);
-  };
+  const filteredHelp = helpData[0].items.filter(item =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-  const handleWhatsApp = () => {
-    const message = 'Olá, preciso de ajuda com a app Insutec Pay.';
-    const url = `whatsapp://send?phone=${CONTACT_INFO.WHATSAPP}&text=${encodeURIComponent(message)}`;
-    Linking.openURL(url).catch(() => {
-      alert('Por favor, instale o WhatsApp ou ligue para o suporte.');
-    });
-  };
-
-  const handleEmail = () => {
-    Linking.openURL(`mailto:${CONTACT_INFO.EMAIL}`);
-  };
+  const filteredInfo = infoData[0].items.filter(item =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <View style={styles.container(isDarkMode)}>
-      <StatusBar 
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+    <SafeAreaView style={shared.safeArea}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
-      
-      <AnimatedHeader isDarkMode={isDarkMode} />
-      
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Barra de Pesquisa */}
-        <SearchBar 
-          isDarkMode={isDarkMode}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+      <View style={styles.container}>
+        <AnimatedHeader isDarkMode={isDarkMode} />
 
-        {/* Ações Rápidas */}
-        <QuickContactActions isDarkMode={isDarkMode} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <SearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            isDarkMode={isDarkMode}
+          />
 
-        {/* Navegação entre Seções */}
-        <View style={styles.sectionSelectorContainer}>
-          <TouchableOpacity
-            style={styles.sectionSelectorButton(activeSection === 'help', isDarkMode)}
-            onPress={() => setActiveSection('help')}
-          >
-            <Text style={styles.sectionSelectorText(activeSection === 'help', isDarkMode)}>
-              Ajuda & Suporte
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.sectionSelectorButton(activeSection === 'info', isDarkMode)}
-            onPress={() => setActiveSection('info')}
-          >
-            <Text style={styles.sectionSelectorText(activeSection === 'info', isDarkMode)}>
-              Informações
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <QuickContact isDarkMode={isDarkMode} />
 
-        {/* Conteúdo Dinâmico */}
-        {activeSection === 'help' ? (
-          <>
-            {helpSections.map((section, sectionIndex) => (
-              <View key={sectionIndex} style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle(isDarkMode)}>{section.title}</Text>
-                {section.items.map((item, itemIndex) => (
-                  <AnimatedHelpItem
-                    key={itemIndex}
-                    icon={item.icon}
-                    text={item.text}
+          {/* Abas */}
+          <View style={styles.tabContainer}>
+            {(['help', 'info'] as const).map(tab => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive(isDarkMode)]}>
+                  {tab === 'help' ? 'Ajuda' : 'Informações'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Conteúdo */}
+          {activeTab === 'help' ? (
+            <View>
+              {filteredHelp.length > 0 ? (
+                filteredHelp.map((item, i) => (
+                  <AnimatedHelpCard
+                    key={i}
+                    icon={item.icon} // ÍCONE REAL
+                    title={item.title}
                     subtitle={item.subtitle}
                     onPress={item.onPress}
-                    isDarkMode={isDarkMode}
-                    index={itemIndex}
                     gradient={item.gradient}
-                  />
-                ))}
-              </View>
-            ))}
-          </>
-        ) : (
-          <>
-            {infoSections.map((section, sectionIndex) => (
-              <View key={sectionIndex} style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle(isDarkMode)}>{section.title}</Text>
-                {section.items.map((item, itemIndex) => (
-                  <AnimatedHelpItem
-                    key={itemIndex}
-                    icon={item.icon}
-                    text={item.text}
-                    subtitle={item.subtitle}
-                    onPress={item.onPress}
+                    index={i}
                     isDarkMode={isDarkMode}
-                    index={itemIndex}
-                    gradient={item.gradient}
                   />
-                ))}
-              </View>
-            ))}
-          </>
-        )}
+                ))
+              ) : (
+                <Text style={styles.emptyText(isDarkMode)}>
+                  Nenhum resultado encontrado para "{searchQuery}"
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View>
+              {filteredInfo.map((item, i) => (
+                <AnimatedHelpCard
+                  key={i}
+                  icon={item.icon} // ÍCONE REAL
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  onPress={item.onPress}
+                  gradient={item.gradient}
+                  index={i}
+                  isDarkMode={isDarkMode}
+                />
+              ))}
+            </View>
+          )}
 
-        {/* Espaço extra no final */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </View>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }

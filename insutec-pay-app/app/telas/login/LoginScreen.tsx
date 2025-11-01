@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Importamos useRef
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons'; // Para o ícone de senha
 import { router } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
 import { styles, COLORS } from '../../../styles/Login.styles';
@@ -19,12 +20,17 @@ import { ValidationRules, formatNumeroEstudante, cleanSenha } from '../../../src
 
 export default function LoginScreen() {
   const { signIn, aluno, isLoading: authLoading } = useAuth();
+  
+  // Refs para controle de foco
+  const passwordInputRef = useRef<TextInput>(null); 
+
   const [numeroEstudante, setNumeroEstudante] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{numeroEstudante?: string; senha?: string}>({});
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // Novo estado para visibilidade da senha
 
-  // Verifica se já está autenticado
+  // ... [O restante dos useEffects (autenticação e limpeza de erros) é o mesmo] ...
   useEffect(() => {
     if (aluno && !authLoading) {
       console.log('[LoginScreen] Usuário já autenticado, redirecionando para home');
@@ -32,7 +38,6 @@ export default function LoginScreen() {
     }
   }, [aluno, authLoading]);
 
-  // Limpa erros quando o usuário começa a digitar
   useEffect(() => {
     if (errors.numeroEstudante && numeroEstudante) {
       setErrors(prev => ({ ...prev, numeroEstudante: undefined }));
@@ -41,6 +46,7 @@ export default function LoginScreen() {
       setErrors(prev => ({ ...prev, senha: undefined }));
     }
   }, [numeroEstudante, senha]);
+  // ... [Fim dos useEffects] ...
 
   const handleNumeroEstudanteChange = (text: string) => {
     const formatted = formatNumeroEstudante(text);
@@ -71,7 +77,6 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    // Validação dos campos
     if (!validateFields()) {
       Alert.alert('Campos Inválidos', 'Por favor, corrija os erros nos campos destacados.');
       return;
@@ -79,28 +84,19 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      console.log('[LoginScreen] Iniciando processo de login...', { 
-        numeroEstudante: numeroEstudante.trim() 
-      });
-
       await signIn(numeroEstudante.trim(), senha);
       
-      // Se chegou aqui, o login foi bem-sucedido
-      console.log('[LoginScreen] Login realizado com sucesso');
       router.replace('/telas/home/HomeScreen');
       
     } catch (error: any) {
-      // O erro já vem com mensagem amigável do AuthContext
       console.log('[LoginScreen] Erro capturado:', error.message);
       
-      // ✅ CORREÇÃO: Mostra alerta com a mensagem amigável
       Alert.alert(
         'Erro no Login', 
         error.message,
         [{ text: 'OK', style: 'default' }]
       );
       
-      // Limpa a senha em caso de erro
       setSenha('');
       
     } finally {
@@ -119,7 +115,7 @@ export default function LoginScreen() {
   // Se ainda está carregando a autenticação, mostra loading
   if (authLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.fullScreenLoading}> {/* Uso de um estilo mais adequado */}
         <StatusBar translucent backgroundColor="transparent" />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.info}>A preparar o sistema...</Text>
@@ -151,6 +147,7 @@ export default function LoginScreen() {
 
         {/* Formulário de Login */}
         <View style={styles.formContainer}>
+          
           {/* Campo Número de Estudante */}
           <View style={styles.inputContainer}>
             <TextInput
@@ -168,6 +165,8 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
+              // Foca no campo de senha após submeter este
+              onSubmitEditing={() => passwordInputRef.current?.focus()} 
             />
             {errors.numeroEstudante && (
               <Text style={styles.errorText}>{errors.numeroEstudante}</Text>
@@ -177,25 +176,40 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Campo Senha */}
+          {/* Campo Senha com Botão de Visibilidade */}
           <View style={styles.inputContainer}>
-            <TextInput
-              style={[
-                styles.input,
-                errors.senha && styles.inputError
-              ]}
-              placeholder="Senha"
-              placeholderTextColor={COLORS.gray}
-              secureTextEntry
-              value={senha}
-              onChangeText={handleSenhaChange}
-              editable={!loading}
-              onSubmitEditing={handleLogin}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="done"
-              maxLength={20}
-            />
+            <View style={styles.passwordInputWrapper}> 
+              <TextInput
+                ref={passwordInputRef} // Anexamos a ref aqui
+                style={[
+                  styles.input,
+                  errors.senha && styles.inputError,
+                  styles.passwordInput
+                ]}
+                placeholder="Senha"
+                placeholderTextColor={COLORS.gray}
+                secureTextEntry={!isPasswordVisible} // Controla a visibilidade
+                value={senha}
+                onChangeText={handleSenhaChange}
+                editable={!loading}
+                onSubmitEditing={handleLogin}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                maxLength={20}
+              />
+              <TouchableOpacity
+                style={styles.visibilityToggle}
+                onPress={() => setIsPasswordVisible(prev => !prev)}
+                disabled={loading}
+              >
+                <MaterialCommunityIcons 
+                  name={isPasswordVisible ? 'eye-off' : 'eye'} 
+                  size={24} 
+                  color={COLORS.darkGray} 
+                />
+              </TouchableOpacity>
+            </View>
             {errors.senha && (
               <Text style={styles.errorText}>{errors.senha}</Text>
             )}

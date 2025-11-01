@@ -1,217 +1,236 @@
-// /insutec-pay-app/components/FolhaDeProvaScreen.tsx
-import React, { useState, useMemo } from 'react';
-import { 
-    View, 
-    Text, 
-    ScrollView, 
-    TouchableOpacity, 
-    ActivityIndicator,
-    Alert,
+// app/telas/servicos/FolhaDeProva.tsx
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Animated,
 } from 'react-native';
-import { MaterialIcons, AntDesign } from '@expo/vector-icons'; 
-import { router } from 'expo-router';
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
-import { paymentStyles } from '../../../styles/_FolhaDeProvaScreen.styles.ts';
+import {
+  createFolhaDeProvaStyles,
+  sharedFinanceStyles,
+  COLORS,
+  GRADIENT,
+} from '../../../styles/_FolhadeProva.styles';
+import { formatCurrency } from '../../../src/utils/formatters';
 
-// Constantes
-const SERVICE_TITLE = 'PAGAMENTO DE FOLHA DE PROVA';
-const UNIT_PRICE = 200.00;
+const { width } = Dimensions.get('window');
+const SERVICE_TITLE = 'Pagamento de Folha de Prova';
+const UNIT_PRICE = 200.0;
 
-// Função de formatação de moeda
-const formatCurrencyBR = (value: number) => {
-    return `R$ ${value.toFixed(2).replace('.', ',')}`;
-}
-
-// Componente Principal
 export default function FolhaDeProvaScreen() {
-    const { aluno } = useAuth();
-    const { isDarkMode } = useTheme();
+  const router = useRouter();
+  const { aluno } = useAuth();
+  const { isDarkMode } = useTheme();
 
-    // Estados
-    const [quantidade, setQuantidade] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
-    
-    // Memoização
-    const subtotal = useMemo(() => UNIT_PRICE * quantidade, [quantidade]);
-    const targetStudentId = aluno?.nr_estudante || 'UNKNOWN';
-    const isButtonDisabled = quantidade === 0 || isLoading;
-    
-    // Estilos
-    const styles = paymentStyles(isDarkMode);
+  const [quantidade, setQuantidade] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [scaleAnim] = useState(new Animated.Value(1));
 
-    // Handlers
-    const handleFinalizarPagamento = () => {
-        if (quantidade === 0) {
-            Alert.alert(
-                'Quantidade Inválida',
-                'Selecione pelo menos 1 folha de prova para continuar.',
-                [{ text: 'OK' }]
-            );
-            return;
-        }
+  const styles = useMemo(() => createFolhaDeProvaStyles(isDarkMode), [isDarkMode]);
+  const sharedStyles = useMemo(() => sharedFinanceStyles(isDarkMode), [isDarkMode]);
 
-        setIsLoading(true);
-        
-        const pedidoItem = {
-            id: `FOLHA-${Date.now()}`,
-            descricao: `Folha de Prova (${quantidade} unidade${quantidade > 1 ? 's' : ''})`,
-            valor: subtotal,
-            data_vencimento: '2025-12-31',
-            quantidade: quantidade
-        };
+  const targetStudentId = aluno?.nr_estudante || '—';
 
-        console.log('Processando pagamento:', pedidoItem);
+  const subtotal = useMemo(() => UNIT_PRICE * quantidade, [quantidade]);
+  const isButtonDisabled = quantidade === 0 || isLoading;
 
-        // Simulação de processamento
-        setTimeout(() => {
-            setIsLoading(false);
-            router.push({
-                pathname: '/telas/Success/SuccessScreen',
-                params: {
-                    service: 'Folha de Prova',
-                    amount: subtotal.toString(),
-                    quantity: quantidade.toString()
-                }
-            });
-        }, 1500);
+  const animatePress = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+  }, [scaleAnim]);
+
+  const increaseQuantity = () => {
+    animatePress();
+    setQuantidade(prev => prev + 1);
+  };
+
+  const decreaseQuantity = () => {
+    if (quantidade > 0) {
+      animatePress();
+      setQuantidade(prev => prev - 1);
+    }
+  };
+
+  const handleFinalizarPagamento = () => {
+    if (quantidade === 0) {
+      Alert.alert('Atenção', 'Selecione pelo menos 1 folha de prova.', [{ text: 'OK' }]);
+      return;
+    }
+
+    setIsLoading(true);
+    animatePress();
+
+    const item = {
+      id: `FOLHA-${Date.now()}`,
+      descricao: `Folha de Prova (${quantidade} unidade${quantidade > 1 ? 's' : ''})`,
+      valor: subtotal,
+      data_vencimento: '2025-12-31',
+      quantidade,
     };
 
-    const increaseQuantity = () => {
-        setQuantidade(prev => prev + 1);
-    };
+    setTimeout(() => {
+      setIsLoading(false);
+      router.push({
+        pathname: '/telas/Success/SuccessScreen',
+        params: {
+          service: 'Folha de Prova',
+          amount: subtotal.toString(),
+          quantity: quantidade.toString(),
+        },
+      });
+    }, 1800);
+  };
 
-    const decreaseQuantity = () => {
-        if (quantidade > 0) {
-            setQuantidade(prev => prev - 1);
-        }
-    };
-
-    // Render
-    return (
-        <View style={styles.container}>
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
-            >
-                {/* Cabeçalho */}
-                <Text style={styles.headerText}>{SERVICE_TITLE}</Text>
-                <Text style={styles.subHeaderText}>
-                    Selecione a quantidade desejada de folhas de prova e finalize o pagamento de forma segura.
-                </Text>
-
-                {/* Card do Item */}
-                <View style={styles.itemCard}>
-                    <View style={styles.itemRow}>
-                        <View style={styles.itemDetails}>
-                            <View style={styles.itemIconContainer}>
-                                <MaterialIcons 
-                                    name="description" 
-                                    size={24} 
-                                    color={COLORS.primary} 
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.itemName}>Folha de Prova (Unidade)</Text>
-                                <Text style={styles.itemPrice}>{formatCurrencyBR(UNIT_PRICE)} cada</Text>
-                            </View>
-                        </View>
-
-                        {/* Seletor de Quantidade */}
-                        <View style={styles.quantitySelector}>
-                            <TouchableOpacity 
-                                style={[
-                                    styles.quantityButton,
-                                    quantidade === 0 && styles.quantityButtonDisabled
-                                ]}
-                                onPress={decreaseQuantity}
-                                disabled={quantidade === 0 || isLoading}
-                            >
-                                <AntDesign 
-                                    name="minus" 
-                                    size={16} 
-                                    color={quantidade === 0 ? COLORS.gray : COLORS.textDark} 
-                                />
-                            </TouchableOpacity>
-                            
-                            <View style={styles.quantityDisplay}>
-                                <Text style={styles.quantityText}>{quantidade}</Text>
-                            </View>
-                            
-                            <TouchableOpacity 
-                                style={styles.quantityButton}
-                                onPress={increaseQuantity}
-                                disabled={isLoading}
-                            >
-                                <AntDesign name="plus" size={16} color={COLORS.textDark} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    
-                    {/* Subtotal */}
-                    <View style={styles.subtotalContainer}>
-                        <Text style={styles.subtotalText}>Subtotal:</Text>
-                        <Text style={styles.subtotalValue}>{formatCurrencyBR(subtotal)}</Text>
-                    </View>
-
-                    {/* Aviso quando quantidade for 0 */}
-                    {quantidade === 0 && (
-                        <Text style={styles.warningText}>
-                            Selecione pelo menos 1 folha para continuar
-                        </Text>
-                    )}
-                </View>
-
-                {/* Informações Adicionais */}
-                <View style={styles.infoCard}>
-                    <Text style={[styles.itemName, { marginBottom: 10 }]}>
-                        Informações do Pedido
-                    </Text>
-                    <View style={styles.infoRow}>
-                        <Text style={styles.subtotalText}>Nº de Estudante:</Text>
-                        <Text style={styles.subtotalValue}>{targetStudentId}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Text style={styles.subtotalText}>Tipo de Serviço:</Text>
-                        <Text style={styles.subtotalValue}>Folha de Prova</Text>
-                    </View>
-                </View>
-
-                {/* Espaço flexível */}
-                <View style={{ flex: 1 }} />
-            </ScrollView>
-
-            {/* Rodapé Fixo */}
-            <View style={styles.fixedFooter}>
-                <TouchableOpacity
-                    style={[
-                        styles.finalizarButton,
-                        isButtonDisabled && styles.finalizarButtonDisabled
-                    ]}
-                    onPress={handleFinalizarPagamento}
-                    disabled={isButtonDisabled}
-                    activeOpacity={0.8}
-                >
-                    {isLoading ? (
-                        <ActivityIndicator color={COLORS.white} size="small" />
-                    ) : (
-                        <Text style={[
-                            styles.finalizarButtonText,
-                            isButtonDisabled && styles.finalizarButtonTextDisabled
-                        ]}>
-                            {quantidade === 0 ? 'SELECIONE A QUANTIDADE' : `PAGAR ${formatCurrencyBR(subtotal)}`}
-                        </Text>
-                    )}
-                </TouchableOpacity>
-                
-                {/* Ícones de Métodos de Pagamento */}
-                <View style={styles.paymentIconsContainer}>
-                    <Text style={styles.paymentIcon}>💳</Text>
-                    <Text style={styles.paymentIcon}>📱</Text>
-                    <Text style={styles.paymentIcon}>🏦</Text>
-                    <Text style={styles.paymentIcon}>🔒</Text>
-                </View>
-            </View>
+  return (
+    <SafeAreaView style={sharedStyles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header com gradiente */}
+        <View style={styles.headerContainer}>
+          <LinearGradient
+            colors={GRADIENT.header(isDarkMode)}
+            style={styles.headerGradient}
+          />
+          <Text style={styles.header}>{SERVICE_TITLE}</Text>
+          <Text style={styles.subHeader}>
+            Selecione a quantidade e finalize com segurança
+          </Text>
         </View>
-    );
+
+        {/* Card Principal */}
+        <View style={styles.itemCard}>
+          <View style={styles.itemRow}>
+            <View style={styles.itemDetails}>
+              <View style={styles.iconContainer}>
+                <MaterialIcons name="description" size={28} color={COLORS.primary} />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.itemName}>Folha de Prova</Text>
+                <Text style={styles.itemPrice}>{formatCurrency(UNIT_PRICE)} / unid.</Text>
+              </View>
+            </View>
+
+            {/* Quantidade com animação */}
+            <View style={styles.quantityContainer}>
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    quantidade === 0 && styles.quantityButtonDisabled,
+                  ]}
+                  onPress={decreaseQuantity}
+                  disabled={quantidade === 0 || isLoading}
+                  activeOpacity={0.8}
+                >
+                  <AntDesign
+                    name="minus"
+                    size={18}
+                    color={quantidade === 0 ? '#888' : COLORS.primary}
+                  />
+                </TouchableOpacity>
+              </Animated.View>
+
+              <View style={styles.quantityDisplay}>
+                <Text style={styles.quantityText}>{quantidade}</Text>
+              </View>
+
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={increaseQuantity}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  <AntDesign name="plus" size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          </View>
+
+          {/* Subtotal */}
+          <View style={styles.subtotalRow}>
+            <Text style={styles.subtotalLabel}>Subtotal:</Text>
+            <Text style={styles.subtotalValue}>{formatCurrency(subtotal)}</Text>
+          </View>
+
+          {quantidade === 0 && (
+            <Text style={styles.warningText}>
+              Selecione pelo menos 1 folha para continuar
+            </Text>
+          )}
+        </View>
+
+        {/* Info Card */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Detalhes do Pedido</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Estudante:</Text>
+            <Text style={styles.infoValue}>{targetStudentId}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Serviço:</Text>
+            <Text style={styles.infoValue}>Folha de Prova</Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Footer Fixo com Gradiente */}
+      <View style={styles.footer}>
+        <LinearGradient
+          colors={
+            isButtonDisabled
+              ? GRADIENT.payButtonDisabled
+              : GRADIENT.payButton(isDarkMode)
+          }
+          style={[
+            styles.payButton,
+            isButtonDisabled && styles.payButtonDisabled,
+          ]}
+        >
+          <TouchableOpacity
+            onPress={handleFinalizarPagamento}
+            disabled={isButtonDisabled}
+            style={styles.payButtonInner}
+            activeOpacity={0.9}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <MaterialIcons name="payment" size={22} color="#fff" />
+                <Text style={styles.payButtonText}>
+                  {quantidade === 0
+                    ? 'SELECIONE A QUANTIDADE'
+                    : `PAGAR ${formatCurrency(subtotal)}`}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </LinearGradient>
+
+        <View style={styles.paymentMethods}>
+          <Text style={styles.paymentIcon}>Cartão</Text>
+          <Text style={styles.paymentIcon}>Multicaixa</Text>
+          <Text style={styles.paymentIcon}>Transferência</Text>
+          <Text style={styles.paymentIcon}>Seguro</Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
 }

@@ -2,455 +2,301 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
+const isSmall = width < 380;
+const isLarge = width > 700;
 
-// Cores para o Insutec Pay
-const COLORS = {
-  primary: '#2563eb',
-  secondary: '#1e40af',
-  accent: '#3b82f6',
-  white: '#ffffff',
-  black: '#000000',
-  gray: '#6b7280',
-  lightGray: '#f3f4f6',
-  darkGray: '#374151',
-  lightBackground: '#ffffff',
-  darkBackground: '#111827',
-  textLight: '#ffffff',
-  textDark: '#1f2937',
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
+export const COLORS = {
+  primary: '#1a4a6d',
+  primaryLight: '#2a5a8d',
+  primaryDark: '#0d2a45',
+  white: '#fff',
+  textDark: '#333',
+  textLight: '#eee',
+  darkBackground: '#1c1c1c',
+  lightBackground: '#f5f5f5',
 };
 
-const FONT_SIZES = {
-  h1: 32,
-  h2: 24,
-  h3: 20,
-  h4: 18,
-  p: 16,
-  small: 14,
-  xsmall: 12,
+const GRADIENTS = {
+  headerLight: ['#e6f7ff', '#f0f8ff'],
+  headerDark: ['#1e3a5f', '#2a4a7a'],
+  cardLight: ['#f8f9ff', '#e6eeff'],
+  cardDark: ['#2a3a50', '#1e2a40'],
 };
 
-export const styles = {
-  // Container Principal
-  container: (isDarkMode: boolean) => ({
-    flex: 1,
-    backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-  }),
-
-  scrollView: {
-    flex: 1,
-  },
-
-  scrollContent: {
-    paddingBottom: 40,
-  },
-
-  // Header
-  header: (isDarkMode: boolean) => ({
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  }),
-
-  logoContainer: {
-    flex: 1,
-  },
-
-  logo: {
-    fontSize: FONT_SIZES.h1,
-    fontWeight: '800',
-    color: COLORS.white,
-    marginBottom: 2,
-  },
-
-  subLogo: {
-    fontSize: FONT_SIZES.small,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.9)',
-  },
-
-  versionBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-
-  versionText: {
-    fontSize: FONT_SIZES.xsmall,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-
-  // Hero Section
-  heroSection: (isDarkMode: boolean) => ({
-    alignItems: 'center',
-    padding: 30,
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(59, 130, 246, 0.05)',
-    margin: 20,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(59, 130, 246, 0.1)',
-  }),
-
-  appIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-
-  appIconText: {
-    fontSize: 40,
-  },
-
-  heroTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h1,
-    fontWeight: '800',
-    color: isDarkMode ? COLORS.textLight : COLORS.primary,
-    marginBottom: 8,
-    textAlign: 'center',
-  }),
-
-  heroSubtitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h3,
-    fontWeight: '600',
-    color: isDarkMode ? 'rgba(255,255,255,0.8)' : COLORS.gray,
-    marginBottom: 16,
-    textAlign: 'center',
-  }),
-
-  heroDescription: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.p,
-    lineHeight: 24,
-    color: isDarkMode ? 'rgba(255,255,255,0.7)' : COLORS.textDark,
-    textAlign: 'center',
-  }),
-
-  // Cards Container
-  cardsContainer: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-
-  infoCard: (isDarkMode: boolean) => ({
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : COLORS.white,
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: isDarkMode ? 0.3 : 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-  }),
-
-  infoCardIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-  },
-
-  infoCardTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h3,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 8,
-  }),
-
-  infoCardDescription: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.p,
-    lineHeight: 22,
-    color: isDarkMode ? 'rgba(255,255,255,0.7)' : COLORS.gray,
-  }),
-
-  // Sections
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 32,
-  },
-
-  sectionTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h2,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 20,
-    textAlign: 'center',
-  }),
-
-  // Features
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-
-  featureItem: {
-    width: (width - 60) / 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-
-  featureIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-
-  featureText: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    fontWeight: '600',
-    color: isDarkMode ? COLORS.textLight : COLORS.primary,
-    flex: 1,
-  }),
-
-  // Statistics
-  statsSection: (isDarkMode: boolean) => ({
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(59, 130, 246, 0.05)',
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-    marginTop: 32,
-  }),
-
-  statsTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h2,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 20,
-    textAlign: 'center',
-  }),
-
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-
-  statItem: {
-    width: (width - 80) / 2,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  statNumber: {
-    fontSize: FONT_SIZES.h1,
-    fontWeight: '800',
-    color: COLORS.primary,
-    marginBottom: 4,
-  },
-
-  statLabel: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    fontWeight: '600',
-    color: isDarkMode ? 'rgba(255,255,255,0.7)' : COLORS.gray,
-    textAlign: 'center',
-  }),
-
-  // Team Section
-  teamCard: (isDarkMode: boolean) => ({
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : COLORS.white,
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: isDarkMode ? 0.3 : 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-  }),
-
-  teamTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h2,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 20,
-    textAlign: 'center',
-  }),
-
-  teamMember: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  memberAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-
-  avatarText: {
-    fontSize: FONT_SIZES.h4,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-
-  memberInfo: {
-    flex: 1,
-  },
-
-  memberName: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.p,
-    fontWeight: '600',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 4,
-  }),
-
-  memberRole: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    color: isDarkMode ? 'rgba(255,255,255,0.6)' : COLORS.gray,
-    marginBottom: 2,
-  }),
-
-  memberContact: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.xsmall,
-    color: COLORS.primary,
-    fontWeight: '500',
-  }),
-
-  // Technology Section
-  techSection: (isDarkMode: boolean) => ({
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(59, 130, 246, 0.05)',
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-  }),
-
-  techTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h2,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 20,
-    textAlign: 'center',
-  }),
-
-  techGrid: {
-    gap: 12,
-  },
-
-  techItem: (isDarkMode: boolean) => ({
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.accent,
-  }),
-
-  techName: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.p,
-    fontWeight: '600',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 4,
-  }),
-
-  techDescription: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    color: isDarkMode ? 'rgba(255,255,255,0.6)' : COLORS.gray,
-  }),
-
-  // Contact Section
-  contactSection: (isDarkMode: boolean) => ({
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: isDarkMode ? 0.3 : 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-  }),
-
-  contactTitle: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.h2,
-    fontWeight: '700',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 20,
-    textAlign: 'center',
-  }),
-
-  contactGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-
-  contactMethod: (isDarkMode: boolean) => ({
-    width: (width - 80) / 2,
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(59, 130, 246, 0.2)',
-  }),
-
-  contactIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-
-  contactLabel: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    fontWeight: '600',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 4,
-  }),
-
-  contactValue: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.xsmall,
-    color: isDarkMode ? 'rgba(255,255,255,0.6)' : COLORS.gray,
-    textAlign: 'center',
-  }),
-
-  // Footer
-  footer: (isDarkMode: boolean) => ({
-    padding: 24,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    marginTop: 20,
-  }),
-
-  footerText: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.small,
-    fontWeight: '600',
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    marginBottom: 8,
-    textAlign: 'center',
-  }),
-
-  footerSubText: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.xsmall,
-    color: isDarkMode ? 'rgba(255,255,255,0.6)' : COLORS.gray,
-    marginBottom: 8,
-    textAlign: 'center',
-  }),
-
-  footerNote: (isDarkMode: boolean) => ({
-    fontSize: FONT_SIZES.xsmall,
-    color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  }),
+export const GRADIENT = {
+  header: (dark: boolean) => (dark ? GRADIENTS.headerDark : GRADIENTS.headerLight),
+  card: (dark: boolean) => (dark ? GRADIENTS.cardDark : GRADIENTS.cardLight),
 };
+
+export const createSobreStyles = (isDarkMode: boolean) =>
+  StyleSheet.create({
+    header: {
+      paddingTop: isLarge ? 60 : 40,
+      paddingBottom: isLarge ? 50 : 30,
+      overflow: 'hidden',
+    },
+    headerGradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: isLarge ? 240 : 200,
+      borderBottomLeftRadius: 40,
+      borderBottomRightRadius: 40,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: isLarge ? 50 : 24,
+    },
+    logoImage: {
+      width: isLarge ? 1 : 1,
+      height: isLarge ? 20 : 20,
+      borderRadius: 16,
+      marginRight: 18,
+    },
+    logoTextContainer: { flex: 1 },
+    logo: {
+      fontSize: isLarge ? 30 : 26,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    subLogo: {
+      fontSize: isLarge ? 20 : 30,
+      color: '#fff',
+      opacity: 0.9,
+    },
+    versionBadge: {
+      backgroundColor: '#ffffff30',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 24,
+    },
+    versionText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+
+    scrollContent: {
+      paddingHorizontal: isLarge ? 60 : (isSmall ? 18 : 24),
+      paddingBottom: 50,
+    },
+
+    hero: {
+      alignItems: 'center',
+      marginBottom: isLarge ? 60 : 40,
+      paddingHorizontal: 20,
+    },
+    appIcon: {
+      width: isLarge ? 130 : 110,
+      height: isLarge ? 130 : 110,
+      borderRadius: isLarge ? 34 : 28,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 24,
+      elevation: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 20,
+    },
+    appIconImage: { width: '72%', height: '72%' },
+    heroTitle: (dark: boolean) => ({
+      fontSize: isLarge ? 36 : 30,
+      fontWeight: 'bold',
+      color: dark ? '#fff' : COLORS.textDark,
+      textAlign: 'center',
+      marginBottom: 12,
+    }),
+    heroSubtitle: (dark: boolean) => ({
+      fontSize: isLarge ? 22 : 18,
+      color: dark ? '#ddd' : '#555',
+      textAlign: 'center',
+      marginBottom: 14,
+    }),
+    heroDescription: (dark: boolean) => ({
+      fontSize: isLarge ? 18 : 15,
+      color: dark ? '#bbb' : '#666',
+      textAlign: 'center',
+      lineHeight: 24,
+    }),
+
+    cardsSection: {
+      marginBottom: isLarge ? 60 : 40,
+      flexDirection: isLarge ? 'row' : 'column',
+      gap: isLarge ? 30 : 0,
+    },
+    infoCard: {
+      marginBottom: isLarge ? 0 : 20,
+      borderRadius: 28,
+      overflow: 'hidden',
+      elevation: 8,
+      width: isLarge ? '31%' : '100%',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+    },
+    infoCardGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    infoCardContent: { padding: isLarge ? 32 : 26 },
+    infoIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    infoTitle: (dark: boolean) => ({
+      fontSize: isLarge ? 22 : 20,
+      fontWeight: '700',
+      color: dark ? '#fff' : COLORS.textDark,
+      marginBottom: 12,
+    }),
+    infoDescription: (dark: boolean) => ({
+      fontSize: isLarge ? 16 : 15,
+      color: dark ? '#ccc' : '#666',
+      lineHeight: 24,
+    }),
+
+    section: { marginBottom: isLarge ? 60 : 40 },
+    sectionTitle: (dark: boolean) => ({
+      fontSize: isLarge ? 28 : 24,
+      fontWeight: '700',
+      color: dark ? '#fff' : COLORS.textDark,
+      marginBottom: 20,
+      textAlign: isLarge ? 'center' : 'left',
+    }),
+    featuresGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 16,
+    },
+    featureItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: isLarge ? '32%' : (isSmall ? '100%' : '48%'),
+      backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f8f8',
+      padding: isLarge ? 22 : 18,
+      borderRadius: 20,
+      elevation: 4,
+      marginBottom: isLarge ? 18 : 0,
+    },
+    featureIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: COLORS.primary + '20',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    featureText: (dark: boolean) => ({
+      flex: 1,
+      fontSize: 16,
+      color: dark ? '#eee' : '#333',
+      fontWeight: '600',
+    }),
+
+    // EQUIPE
+    teamSection: {
+      marginBottom: isLarge ? 60 : 40,
+      padding: isLarge ? 40 : 30,
+      backgroundColor: isDarkMode ? '#222' : '#f0f8ff',
+      borderRadius: 28,
+      alignItems: 'center',
+    },
+    teamTitle: (dark: boolean) => ({
+      fontSize: isLarge ? 28 : 24,
+      fontWeight: '700',
+      color: dark ? '#fff' : COLORS.primary,
+      marginBottom: 24,
+      textAlign: 'center',
+    }),
+    teamCard: {
+      flexDirection: 'row',
+      backgroundColor: isDarkMode ? '#2a2a2a' : '#fff',
+      borderRadius: 24,
+      padding: isLarge ? 32 : 26,
+      elevation: 10,
+      width: isLarge ? '70%' : '100%',
+      shadowColor: COLORS.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.22,
+      shadowRadius: 16,
+    },
+    avatar: {
+      width: isLarge ? 88 : 72,
+      height: isLarge ? 88 : 72,
+      borderRadius: isLarge ? 44 : 36,
+      backgroundColor: COLORS.primaryLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 20,
+    },
+    avatarText: {
+      color: '#fff',
+      fontSize: isLarge ? 26 : 20,
+      fontWeight: 'bold',
+    },
+    memberInfo: { flex: 1, justifyContent: 'center' },
+    memberName: (dark: boolean) => ({
+      fontSize: isLarge ? 21 : 19,
+      fontWeight: '700',
+      color: dark ? '#fff' : COLORS.textDark,
+    }),
+    memberRole: (dark: boolean) => ({
+      fontSize: isLarge ? 16 : 15,
+      color: dark ? '#aaa' : '#666',
+      marginTop: 6,
+    }),
+    memberLinks: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 18,
+      marginTop: 14,
+    },
+    linkButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    linkText: {
+      color: COLORS.primary,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+
+    // RODAPÉ
+    footer: {
+      alignItems: 'center',
+      paddingVertical: 30,
+      borderTopWidth: 1,
+      borderTopColor: isDarkMode ? '#333' : '#ddd',
+    },
+    footerText: (dark: boolean) => ({
+      fontSize: 15,
+      color: dark ? '#aaa' : '#666',
+      textAlign: 'center',
+    }),
+    footerSub: (dark: boolean) => ({
+      fontSize: 14,
+      color: dark ? '#999' : '#777',
+      marginTop: 8,
+      fontWeight: '500',
+    }),
+    footerNote: (dark: boolean) => ({
+      fontSize: 13,
+      color: dark ? '#888' : '#888',
+      marginTop: 10,
+      fontStyle: 'italic',
+    }),
+  });
+
+export const sharedStyles = (isDarkMode: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+    },
+  });

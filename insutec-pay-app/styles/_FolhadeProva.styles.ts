@@ -1,187 +1,293 @@
-// /insutec-pay-app/styles/_FolhaDeProvaScreen.styles.ts
-import { StyleSheet, TextStyle, ViewStyle } from 'react-native';
-import { COLORS } from './_ServicoStyles.style.ts'; 
+// styles/_FolhadeProva.styles.ts
+import { StyleSheet, Dimensions } from 'react-native';
 
-type StyleCreator = (isDarkMode: boolean) => StyleSheet.NamedStyles<any>;
+const { width } = Dimensions.get('window');
+const isSmall = width < 380;
 
-export const paymentStyles: StyleCreator = (isDarkMode) => StyleSheet.create({
+export const COLORS = {
+  primary: '#1a4a6d',
+  primaryLight: '#2a5a8d',
+  white: '#fff',
+  textDark: '#333',
+  textLight: '#eee',
+  darkBackground: '#1c1c1c',
+  lightBackground: '#f5f5f5',
+  success: '#2ecc71',
+  danger: '#e74c3c',
+  disabled: '#95a5a6',
+  darkCard: '#2a2a2a',
+  lightCard: '#fff',
+  gray: '#777',
+  lightGray: '#e0e0e0',
+};
+
+const GRADIENTS = {
+  primary: ['#1a4a6d', '#2a5a8d'],
+  payButton: ['#1a4a6d', '#0d2a45'],
+  payButtonDisabled: ['#a0a8b3', '#95a5a6'],
+  headerLight: ['#e6f7ff', '#f0f8ff'],
+  headerDark: ['#1e3a5f', '#2a4a7a'],
+};
+
+export const GRADIENT = {
+  header: (dark: boolean) => (dark ? GRADIENTS.headerDark : GRADIENTS.headerLight),
+  payButton: (dark: boolean) => (dark ? GRADIENTS.payButton : GRADIENTS.primary),
+  payButtonDisabled: GRADIENTS.payButtonDisabled,
+};
+
+export const createFolhaDeProvaStyles = (isDarkMode: boolean) =>
+  StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-        paddingTop: 50,
-    } as ViewStyle,
-    headerText: {
-        fontSize: 24,
-        fontWeight: '900',
-        textAlign: 'center',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginBottom: 10,
-    } as TextStyle,
-    subHeaderText: {
-        fontSize: 16,
-        textAlign: 'center',
-        color: isDarkMode ? COLORS.subText : COLORS.gray,
-        marginBottom: 30,
-        paddingHorizontal: 20,
-        lineHeight: 22,
-    } as TextStyle,
+      flexGrow: 1,
+      paddingHorizontal: isSmall ? 12 : 16,
+      paddingBottom: 20,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+    },
+
+    headerContainer: {
+      position: 'relative',
+      marginBottom: 24,
+      paddingHorizontal: 8,
+    },
+
+    headerGradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 90,
+      borderBottomLeftRadius: 32,
+      borderBottomRightRadius: 32,
+      opacity: 0.92,
+    },
+
+    header: {
+      fontSize: isSmall ? 22 : 26,
+      fontWeight: 'bold',
+      color: '#fff',
+      textAlign: 'center',
+      marginTop: 16,
+      letterSpacing: 0.5,
+      zIndex: 1,
+    },
+
+    subHeader: {
+      fontSize: isSmall ? 14 : 15,
+      color: '#fff',
+      textAlign: 'center',
+      marginTop: 8,
+      opacity: 0.9,
+      zIndex: 1,
+    },
+
     itemCard: {
-        backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white,
-        borderRadius: 12,
-        marginHorizontal: 20,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 5,
-    } as ViewStyle,
+      backgroundColor: isDarkMode ? COLORS.darkCard : COLORS.lightCard,
+      borderRadius: 20,
+      marginHorizontal: 16,
+      padding: 20,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+      overflow: 'hidden',
+    },
+
     itemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-    } as ViewStyle,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+
     itemDetails: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    } as ViewStyle,
-    itemIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        backgroundColor: isDarkMode ? '#2A2A3A' : '#E6EEFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
-        borderWidth: 1,
-        borderColor: isDarkMode ? '#3A3A4A' : '#D0D0FF'
-    } as ViewStyle,
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+
+    iconContainer: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: isDarkMode ? '#2a3a50' : '#e6f0ff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+      borderWidth: 1.5,
+      borderColor: COLORS.primary + '40',
+    },
+
+    textContainer: {
+      flex: 1,
+    },
+
     itemName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-        marginBottom: 4,
-    } as TextStyle,
+      fontSize: 17,
+      fontWeight: '700',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    },
+
     itemPrice: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: COLORS.primary,
-    } as TextStyle,
-    quantitySelector: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-    } as ViewStyle,
+      fontSize: 15,
+      fontWeight: '600',
+      color: COLORS.primary,
+      marginTop: 2,
+    },
+
+    quantityContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+
     quantityButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: isDarkMode ? COLORS.cardDark : '#f0f0f0', 
-        borderWidth: 1,
-        borderColor: isDarkMode ? COLORS.gray : '#E0E0E0',
-    } as ViewStyle,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDarkMode ? '#333' : '#f8f8f8',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: COLORS.primary + '60',
+      elevation: 2,
+    },
+
     quantityButtonDisabled: {
-        opacity: 0.4,
-    } as ViewStyle,
+      borderColor: '#aaa',
+      opacity: 0.5,
+    },
+
     quantityDisplay: {
-        minWidth: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginHorizontal: 8,
-    } as ViewStyle,
+      minWidth: 48,
+      paddingHorizontal: 8,
+    },
+
     quantityText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    } as TextStyle,
-    subtotalContainer: {
-        marginTop: 15,
-        paddingTop: 15,
-        borderTopWidth: 1,
-        borderTopColor: isDarkMode ? '#3A3A3A' : '#F0F0F0',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    } as ViewStyle,
-    subtotalText: {
-        fontSize: 14,
-        color: isDarkMode ? COLORS.subText : COLORS.gray,
-    } as TextStyle,
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: isDarkMode ? COLORS.white : COLORS.textDark,
+    },
+
+    subtotalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 20,
+      paddingTop: 16,
+      borderTopWidth: 1.5,
+      borderTopColor: isDarkMode ? '#444' : '#eee',
+    },
+
+    subtotalLabel: {
+      fontSize: 16,
+      color: isDarkMode ? '#ccc' : '#555',
+      fontWeight: '600',
+    },
+
     subtotalValue: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: isDarkMode ? COLORS.textLight : COLORS.textDark,
-    } as TextStyle,
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: COLORS.primary,
+    },
+
     warningText: {
-        fontSize: 12,
-        color: '#FF6B35',
-        textAlign: 'center',
-        marginTop: 8,
-        fontStyle: 'italic',
-    } as TextStyle,
+      fontSize: 13,
+      color: '#ff6b35',
+      textAlign: 'center',
+      marginTop: 12,
+      fontStyle: 'italic',
+      fontWeight: '500',
+    },
+
     infoCard: {
-        backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white,
-        borderRadius: 12,
-        marginHorizontal: 20,
-        marginTop: 15,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 5,
-    } as ViewStyle,
+      backgroundColor: isDarkMode ? COLORS.darkCard : COLORS.lightCard,
+      borderRadius: 18,
+      marginHorizontal: 16,
+      marginTop: 20,
+      padding: 18,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+    },
+
+    infoTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+      marginBottom: 12,
+    },
+
     infoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    } as ViewStyle,
-    fixedFooter: {
-        padding: 20,
-        backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-        borderTopWidth: 1,
-        borderTopColor: isDarkMode ? COLORS.gray : '#E0E0E0',
-    } as ViewStyle,
-    finalizarButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 16,
-        borderRadius: 10,
-        backgroundColor: COLORS.primary,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
-    } as ViewStyle,
-    finalizarButtonDisabled: {
-        backgroundColor: isDarkMode ? '#3A3A3A' : '#CCCCCC',
-        shadowOpacity: 0,
-        elevation: 0,
-    } as ViewStyle,
-    finalizarButtonText: {
-        color: COLORS.white,
-        fontSize: 16,
-        fontWeight: 'bold',
-    } as TextStyle,
-    finalizarButtonTextDisabled: {
-        color: isDarkMode ? '#888888' : '#999999',
-    } as TextStyle,
-    paymentIconsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 15,
-        gap: 12,
-    } as ViewStyle,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+
+    infoLabel: {
+      fontSize: 14,
+      color: isDarkMode ? '#aaa' : '#666',
+    },
+
+    infoValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDarkMode ? COLORS.white : COLORS.textDark,
+    },
+
+    footer: {
+      padding: 20,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+      borderTopWidth: 1,
+      borderTopColor: isDarkMode ? '#333' : '#ddd',
+    },
+
+    payButton: {
+      borderRadius: 18,
+      overflow: 'hidden',
+      elevation: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+    },
+
+    payButtonDisabled: {
+      elevation: 0,
+      shadowOpacity: 0,
+    },
+
+    payButtonInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 18,
+      gap: 10,
+    },
+
+    payButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+
+    paymentMethods: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 16,
+      gap: 20,
+    },
+
     paymentIcon: {
-        fontSize: 20,
-        color: isDarkMode ? '#666666' : '#999999',
-        fontWeight: 'bold',
-    } as TextStyle,
-});
+      fontSize: 22,
+      color: isDarkMode ? '#777' : '#999',
+    },
+  });
+
+export const sharedFinanceStyles = (isDarkMode: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
+    },
+  });
