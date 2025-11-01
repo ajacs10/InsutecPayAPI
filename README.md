@@ -4,7 +4,7 @@
 
 ## ✨ Visão Geral do Projeto
 
-A **InsutecPayAPI** é a solução de backend centralizada e robusta que alimenta o ecossistema de pagamentos da **Universidade INSUTEC**.
+A **InsutecPayAPI** é a solução para pagamento de emolumentos centralizada e robusta que alimenta o ecossistema de pagamentos da **Universidade INSUTEC**.
 
 Desenvolvida com foco em **segurança**, **escala** e **transparência**, a API foi criada para modernizar a gestão financeira universitária, eliminando fricções e oferecendo uma experiência de pagamento digital eficiente para todos os membros da comunidade académica.
 
@@ -48,9 +48,3 @@ Veja a interface móvel que consome os serviços desta API através das seguinte
 </p>
 
 
-
-Para colocar a API em funcionamento (no diretório `insutec-pay-api`):
-
-1.  **Pré-requisitos:** Certifique-se de ter o ambiente de desenvolvimento configurado.
-2.  **Instalação:** `npm install`
-3.  **Execução:** `npm start`
