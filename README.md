@@ -37,8 +37,11 @@ Veja a interface móvel que consome os serviços desta API através das seguinte
 <p align="center">
   <img src="img_aplica/1.png" alt="Tela Principal da Aplicação" width="200"/> 
   &nbsp; &nbsp; &nbsp; 
+  
   <img src="img_aplica/2.png" alt="Detalhes de Transação ou Histórico" width="200"/>
   <br/><br/>
+  <img src="img_aplica/42.png" alt="Ecrã de Pagamento de Propina" width="200"/>
+  <img src="img_aplica/43.png" alt="Ecrã de Pagamento de Propina" width="200"/>
   <img src="img_aplica/3.png" alt="Ecrã de Pagamento ou Saldo" width="200"/> 
   &nbsp; &nbsp; &nbsp; 
   <img src="img_aplica/4.png" alt="Ecrã de Perfil ou Configurações" width="200"/>
