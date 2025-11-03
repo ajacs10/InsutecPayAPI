@@ -20,7 +20,25 @@ import { COLORS, sharedStyles } from '../../../styles/_SharedFinance.styles';
 import QRCode from 'react-native-qrcode-svg';
 import { gerarRecibo } from './gerarComprovativoDocx';
 
-const INSUTEC_LOGO = require('../../../assets/images/logo.png');
+// === DATA E HORA DE LUANDA (UTC+1) ===
+const getLuandaDateTime = () => {
+  const now = new Date();
+  const luandaOffset = 1 * 60; // UTC+1
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const luandaTime = new Date(utc + luandaOffset * 60000);
+
+  const data = luandaTime.toLocaleDateString('pt-AO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const hora = luandaTime.toLocaleTimeString('pt-AO', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return { data, hora };
+};
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -46,7 +64,6 @@ export default function ComprovativoScreen() {
   const { highlightId } = useLocalSearchParams<{ highlightId?: string }>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(highlightId || null);
-  const qrRef = useRef<any>();
 
   const selectedComprovativo = comprovativos.find(c => c.id === selectedId);
 
@@ -55,6 +72,8 @@ export default function ComprovativoScreen() {
     if (!selectedComprovativo) return;
 
     setDownloadingId(selectedComprovativo.id);
+
+    const { data, hora } = getLuandaDateTime();
 
     const dados = {
       ANO: new Date().getFullYear(),
@@ -68,16 +87,18 @@ export default function ComprovativoScreen() {
       CURSO: aluno?.curso || 'Curso não definido',
       ANO: aluno?.ano || '1',
       TURNO: aluno?.turno || 'M',
-      ANO_LECTIVO: '2024/2025',
+      ANO_LECTIVO: '2025/2026',
       SERVICO: selectedComprovativo.descricao,
       VALOR: formatCurrency(selectedComprovativo.valor).replace('AOA', '').trim(),
       QT: '1',
       TIPOSERVICO: selectedComprovativo.tipo_servico,
+      // Data/Hora de Luanda será sobrescrita no gerarRecibo
     };
 
     try {
       await gerarRecibo(dados, formato);
     } catch (error) {
+      console.error(error);
       Alert.alert('Erro', `Falha ao gerar ${formato.toUpperCase()}.`);
     } finally {
       setDownloadingId(null);
@@ -171,7 +192,6 @@ export default function ComprovativoScreen() {
                   <QRCode
                     value={selectedComprovativo.qrCode || selectedComprovativo.id}
                     size={160}
-                    getRef={c => (qrRef.current = c)}
                   />
                 </View>
 
@@ -228,10 +248,6 @@ export default function ComprovativoScreen() {
                 </View>
 
                 <View style={styles.divider} />
-
-                {/* Saldo */}
-               
-                
               </View>
 
               {/* Botões de Download */}
