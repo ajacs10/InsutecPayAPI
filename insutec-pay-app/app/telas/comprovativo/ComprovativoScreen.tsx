@@ -1,338 +1,304 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Alert, Platform, ScrollView } from 'react-native';
-import { router, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+// app/telas/comprovativo/ComprovativoScreen.tsx
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext/ThemeContext';
 import { useFinance } from '../../../components/FinanceContext';
-import { formatCurrency } from '../../../src/utils/formatters';
-import { styles, COLORS } from '../../../styles/_ComprovativoScreen.styles';
+import { useAuth } from '../../../components/AuthContext';
+import { COLORS, sharedStyles } from '../../../styles/_SharedFinance.styles';
+import QRCode from 'react-native-qrcode-svg';
+import { gerarRecibo } from './gerarComprovativoDocx';
+
+const INSUTEC_LOGO = require('../../../assets/images/logo.png');
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+const formatFullDate = (iso: string) =>
+  new Date(iso).toLocaleString('pt-AO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+const formatCurrency = (v: number | string) => {
+  const num = typeof v === 'string' ? parseFloat(v) : v;
+  return num.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });
+};
 
 export default function ComprovativoScreen() {
   const { isDarkMode } = useTheme();
   const { comprovativos } = useFinance();
+  const { aluno } = useAuth();
+  const { highlightId } = useLocalSearchParams<{ highlightId?: string }>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(highlightId || null);
+  const qrRef = useRef<any>();
 
-  const handleGoHome = () => {
-    router.replace('/telas/home/HomeScreen');
-  };
+  const selectedComprovativo = comprovativos.find(c => c.id === selectedId);
 
-  const handleGoBack = () => {
-    router.back();
-  };
+  // === GERAR RECIBO EM QUALQUER FORMATO ===
+  const handleGerarRecibo = async (formato: 'docx' | 'pdf' | 'txt') => {
+    if (!selectedComprovativo) return;
 
-  const generateComprovativoContent = (comprovativo: any): string => {
-    const data = new Date(comprovativo.data).toLocaleString('pt-AO');
-    
-    return `
-COMPROVATIVO DE PAGAMENTO - INSUTEC PAY
-========================================
+    setDownloadingId(selectedComprovativo.id);
 
-ID da Transação: ${comprovativo.id}
-Data/Hora: ${data}
-Status: ${comprovativo.tipo === 'Débito' ? 'PAGO' : 'CRÉDITO'}
+    const dados = {
+      ANO: new Date().getFullYear(),
+      NUMERO: selectedComprovativo.id.slice(-5),
+      DATA: formatDate(selectedComprovativo.data),
+      HORA: new Date(selectedComprovativo.data).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
+      NOME_ESTUDANTE: aluno?.nome || 'Estudante',
+      NIF_ESTUDANTE: aluno?.nif || '000000000LA000',
+      MORADA: aluno?.morada || 'Não informada',
+      NUM_ESTUDANTE: aluno?.nr_estudante || '000000',
+      CURSO: aluno?.curso || 'Curso não definido',
+      ANO: aluno?.ano || '1',
+      TURNO: aluno?.turno || 'M',
+      ANO_LECTIVO: '2024/2025',
+      SERVICO: selectedComprovativo.descricao,
+      VALOR: formatCurrency(selectedComprovativo.valor).replace('AOA', '').trim(),
+      QT: '1',
+      TIPOSERVICO: selectedComprovativo.tipo_servico,
+    };
 
-DETALHES DO PAGAMENTO:
-----------------------
-Serviço: ${comprovativo.tipo_servico || 'Serviço Académico'}
-Descrição: ${comprovativo.descricao}
-${comprovativo.estudante_alvo_id ? `Estudante: ${comprovativo.estudante_alvo_id}` : ''}
-Método de Pagamento: ${comprovativo.metodo_pagamento || 'Cartão Atlântico Universitário+'}
-
-INFORMAÇÕES FINANCEIRAS:
-------------------------
-Valor: ${formatCurrency(comprovativo.valor)}
-Tipo: ${comprovativo.tipo}
-
-========================================
-Este é um comprovativo eletrónico gerado
-automaticamente pelo sistema InsutecPay.
-
-Data de emissão: ${new Date().toLocaleString('pt-AO')}
-========================================
-    `.trim();
-  };
-
-  const downloadComprovativo = async (comprovativo: any) => {
     try {
-      setDownloadingId(comprovativo.id);
-      
-      const content = generateComprovativoContent(comprovativo);
-      
-      if (Platform.OS === 'web') {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `comprovativo_${comprovativo.id}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        Alert.alert('Sucesso', 'Comprovativo baixado com sucesso!');
-        return;
-      }
-
-      const filename = `comprovativo_${comprovativo.id}.txt`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
-      
-      await FileSystem.writeAsStringAsync(fileUri, content, {
-        encoding: FileSystem.EncodingType.UTF8
-      });
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Compartilhar Comprovativo',
-          UTI: 'public.plain-text'
-        });
-      } else {
-        Alert.alert(
-          'Download Concluído', 
-          `Comprovativo salvo em: ${fileUri}`,
-          [{ text: 'OK' }]
-        );
-      }
-      
+      await gerarRecibo(dados, formato);
     } catch (error) {
-      console.error('Erro ao baixar comprovativo:', error);
-      Alert.alert('Erro', 'Não foi possível baixar o comprovativo. Tente novamente.');
+      Alert.alert('Erro', `Falha ao gerar ${formato.toUpperCase()}.`);
     } finally {
       setDownloadingId(null);
     }
   };
 
-  const handleComprovativoPress = (comprovativo: any) => {
-    Alert.alert(
-      'Comprovativo',
-      `Deseja baixar o comprovativo de ${formatCurrency(comprovativo.valor)}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Baixar', 
-          onPress: () => downloadComprovativo(comprovativo),
-          style: 'default'
-        }
-      ]
-    );
-  };
+  const renderItem = ({ item }: { item: any }) => {
+    const isSelected = selectedId === item.id;
+    const isDownloading = downloadingId === item.id;
 
-  const handleLongPress = (comprovativo: any) => {
-    Alert.alert(
-      'Opções do Comprovativo',
-      `Comprovativo: ${comprovativo.descricao}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Baixar PDF', 
-          onPress: () => downloadComprovativo(comprovativo)
-        },
-        {
-          text: 'Ver Detalhes',
-          onPress: () => showComprovativoDetails(comprovativo)
-        }
-      ]
-    );
-  };
-
-  const showComprovativoDetails = (comprovativo: any) => {
-    Alert.alert(
-      'Detalhes do Comprovativo',
-      `
-Descrição: ${comprovativo.descricao}
-Valor: ${formatCurrency(comprovativo.valor)}
-Data: ${new Date(comprovativo.data).toLocaleString('pt-AO')}
-Tipo: ${comprovativo.tipo}
-${comprovativo.tipo_servico ? `Serviço: ${comprovativo.tipo_servico}` : ''}
-${comprovativo.metodo_pagamento ? `Método: ${comprovativo.metodo_pagamento}` : ''}
-      `.trim(),
-      [
-        { text: 'Fechar', style: 'cancel' },
-        { 
-          text: 'Baixar', 
-          onPress: () => downloadComprovativo(comprovativo)
-        }
-      ]
-    );
-  };
-
-  const renderComprovativo = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={styles.comprovativoCard(isDarkMode)}
-      onPress={() => handleComprovativoPress(item)}
-      onLongPress={() => handleLongPress(item)}
-      activeOpacity={0.7}
-      delayLongPress={500}
-    >
-      <View style={styles.comprovativoHeader}>
-        <View style={styles.comprovativoInfo}>
-          <Text style={styles.comprovativoTitle(isDarkMode)} numberOfLines={2}>
-            {item.descricao}
-          </Text>
-          {item.tipo_servico && (
-            <Text style={styles.serviceType(isDarkMode)}>
-              {item.tipo_servico}
-            </Text>
-          )}
-        </View>
-        
-        <View style={styles.valueContainer}>
-          <Text style={styles.comprovativoValue(isDarkMode)}>
-            {formatCurrency(item.valor)}
-          </Text>
-          <TouchableOpacity 
-            style={styles.downloadButton}
-            onPress={() => downloadComprovativo(item)}
-            disabled={downloadingId === item.id}
-          >
-            {downloadingId === item.id ? (
-              <Ionicons name="download" size={16} color={COLORS.primary} />
-            ) : (
-              <Ionicons name="download-outline" size={16} color={COLORS.primary} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      <View style={styles.comprovativoDetails}>
-        <View style={styles.dateContainer}>
-          <Ionicons 
-            name="calendar-outline" 
-            size={14} 
-            color={isDarkMode ? COLORS.subText : COLORS.gray} 
-          />
-          <Text style={styles.comprovativoDate(isDarkMode)}>
-            {new Date(item.data).toLocaleDateString('pt-AO', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </Text>
-        </View>
-        
-        <View style={styles.statusContainer}>
-          <View style={styles.statusBadge(item.tipo)}>
-            <Ionicons 
-              name={item.tipo === 'Débito' ? 'arrow-down-circle' : 'arrow-up-circle'} 
-              size={12} 
-              color={COLORS.primary} 
-            />
-            <Text style={styles.statusText}>
-              {item.tipo === 'Débito' ? 'PAGO' : 'CRÉDITO'}
+    return (
+      <TouchableOpacity
+        style={[
+          sharedStyles.card(isDarkMode),
+          isSelected && { borderColor: COLORS.primary, borderWidth: 2 },
+        ]}
+        onPress={() => setSelectedId(item.id)}
+        onLongPress={() => handleGerarRecibo('txt')}
+        activeOpacity={0.8}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={sharedStyles.sectionTitle(isDarkMode)}>{item.descricao}</Text>
+            <Text style={sharedStyles.label(isDarkMode)}>
+              {item.tipo_servico} • {formatDate(item.data)}
             </Text>
           </View>
-        </View>
-      </View>
-
-      {item.metodo_pagamento && (
-        <View style={styles.paymentMethod}>
-          <Ionicons 
-            name="card-outline" 
-            size={12} 
-            color={isDarkMode ? COLORS.subText : COLORS.gray} 
-          />
-          <Text style={styles.paymentMethodText(isDarkMode)}>
-            {item.metodo_pagamento}
+          <Text style={{ ...sharedStyles.value(isDarkMode), fontWeight: '700' }}>
+            {formatCurrency(item.valor)}
           </Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
-
-  const renderHeaderButtons = () => (
-    <View style={styles.headerButtonsContainer}>
-      <TouchableOpacity 
-        style={styles.smallButton(isDarkMode)}
-        onPress={handleGoBack}
-      >
-        <Ionicons 
-          name="arrow-back" 
-          size={16} 
-          color={isDarkMode ? COLORS.textLight : COLORS.textDark} 
-        />
-        <Text style={styles.smallButtonText(isDarkMode)}>Voltar</Text>
+        {isDownloading && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={{ marginLeft: 8, color: COLORS.primary }}>Gerando...</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.smallPrimaryButton}
-        onPress={handleGoHome}
-      >
-        <Ionicons name="home" size={16} color={COLORS.white} />
-        <Text style={styles.smallPrimaryButtonText}>Início</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons 
-        name="document-text-outline" 
-        size={80} 
-        color={COLORS.primary} 
-      />
-      <Text style={styles.title(isDarkMode)}>Meus Comprovativos</Text>
-      <Text style={styles.emptyText(isDarkMode)}>
-        Você ainda não possui comprovativos de pagamento.
-      </Text>
-      <Text style={styles.emptySubtext(isDarkMode)}>
-        Realize pagamentos para gerar comprovativos.
-      </Text>
-    </View>
-  );
-
-  const renderListHeader = () => (
-    <View style={styles.listHeader}>
-      <Text style={styles.listTitle(isDarkMode)}>Meus Comprovativos</Text>
-      <Text style={styles.listSubtitle(isDarkMode)}>
-        {comprovativos.length} comprovativo(s) encontrado(s)
-      </Text>
-      <Text style={styles.instructionText(isDarkMode)}>
-        Toque para baixar • Mantenha pressionado para mais opções
-      </Text>
-    </View>
-  );
+    );
+  };
 
   return (
-    <View style={styles.safeArea(isDarkMode)}>
-      <Stack.Screen
-        options={{
-          title: 'Comprovativos',
-          headerStyle: { 
-            backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground 
-          },
-          headerTintColor: isDarkMode ? COLORS.textLight : COLORS.textDark,
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-        }}
-      />
-      
-      {/* Botões no Topo */}
-      {renderHeaderButtons()}
-      
-      {/* Lista de Comprovativos */}
+    <SafeAreaView style={sharedStyles.container(isDarkMode)}>
+      <Stack.Screen options={{ title: 'Comprovativos' }} />
+
+      {/* Cabeçalho */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16 }}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/telas/home/HomeScreen')}>
+          <Ionicons name="home" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
+
       {comprovativos.length === 0 ? (
-        <ScrollView contentContainerStyle={styles.emptyContainer}>
-          {renderEmptyState()}
-        </ScrollView>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Ionicons name="document-text-outline" size={80} color={COLORS.subText} />
+          <Text style={sharedStyles.title(isDarkMode)}>Nenhum comprovativo</Text>
+        </View>
       ) : (
-        <FlatList
-          data={comprovativos}
-          renderItem={renderComprovativo}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader()}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={true}
-        />
+        <View style={{ flex: 1 }}>
+          {/* Lista */}
+          <FlatList
+            data={comprovativos}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ paddingHorizontal: 16 }}
+            style={{ flex: selectedComprovativo ? 0.4 : 1 }}
+          />
+
+          {/* Detalhe */}
+          {selectedComprovativo && (
+            <ScrollView
+              style={{
+                flex: 0.6,
+                backgroundColor: isDarkMode ? '#111' : '#f9f9f9',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                paddingTop: 16,
+                marginTop: 8,
+              }}
+            >
+              <Text style={{ ...sharedStyles.title(isDarkMode), textAlign: 'center', marginBottom: 16 }}>
+                Detalhe do Comprovativo
+              </Text>
+
+              <View style={sharedStyles.card(isDarkMode)}>
+                {/* QR Code */}
+                <View style={{ alignItems: 'center', marginVertical: 16 }}>
+                  <QRCode
+                    value={selectedComprovativo.qrCode || selectedComprovativo.id}
+                    size={160}
+                    getRef={c => (qrRef.current = c)}
+                  />
+                </View>
+
+                {/* Dados do Aluno */}
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Estudante:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{aluno?.nome}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Nº Estudante:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{aluno?.nr_estudante}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Curso:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>
+                    {aluno?.curso} ({aluno?.ano}ºAno - {aluno?.turno})
+                  </Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Serviço */}
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Serviço:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{selectedComprovativo.tipo_servico}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Descrição:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{selectedComprovativo.descricao}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Data:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{formatFullDate(selectedComprovativo.data)}</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Valores */}
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Valor Total:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>{formatCurrency(selectedComprovativo.valor)}</Text>
+                </View>
+                {selectedComprovativo.valor_multas && parseFloat(selectedComprovativo.valor_multas) > 0 && (
+                  <View style={styles.row}>
+                    <Text style={sharedStyles.label(isDarkMode)}>Multa:</Text>
+                    <Text style={{ ...sharedStyles.value(isDarkMode), color: COLORS.danger }}>
+                      + {formatCurrency(selectedComprovativo.valor_multas)}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.row}>
+                  <Text style={sharedStyles.label(isDarkMode)}>Método:</Text>
+                  <Text style={sharedStyles.value(isDarkMode)}>Carteira Insutec Pay</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Saldo */}
+               
+                
+              </View>
+
+              {/* Botões de Download */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20, flexWrap: 'wrap' }}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleGerarRecibo('pdf')}
+                  disabled={downloadingId !== null}
+                >
+                  <Feather name="file-text" size={20} color="#fff" />
+                  <Text style={styles.actionText}>PDF</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleGerarRecibo('txt')}
+                  disabled={downloadingId !== null}
+                >
+                  <Feather name="download" size={20} color="#fff" />
+                  <Text style={styles.actionText}>TXT</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleGerarRecibo('docx')}
+                  disabled={downloadingId !== null}
+                >
+                  <Feather name="file-word" size={20} color="#fff" />
+                  <Text style={styles.actionText}>DOCX</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleGerarRecibo('txt')}
+                  disabled={downloadingId !== null}
+                >
+                  <Feather name="share-2" size={20} color="#fff" />
+                  <Text style={styles.actionText}>Compartilhar</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={{ alignSelf: 'center', marginBottom: 20 }}
+                onPress={() => setSelectedId(null)}
+              >
+                <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Fechar Detalhe</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = {
+  row: { flexDirection: 'row' as const, justifyContent: 'space-between', marginBottom: 8 },
+  divider: { height: 1, backgroundColor: '#444', marginVertical: 16 },
+  actionButton: {
+    backgroundColor: COLORS.primaryDark,
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+    margin: 5,
+  },
+  actionText: { color: '#fff', fontWeight: '600' },
+};

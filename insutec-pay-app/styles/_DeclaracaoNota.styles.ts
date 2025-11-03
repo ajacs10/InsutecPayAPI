@@ -67,8 +67,8 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
       left: 0,
       right: 0,
       height: 80,
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
+      borderBottomLeftRadius: 40,
+      borderBottomRightRadius: 40,
       opacity: 0.9,
     },
 
@@ -113,8 +113,8 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
       borderWidth: 1.5,
       borderColor: isDarkMode ? '#555' : '#ddd',
       borderRadius: 14,
-      padding: 16,
-      fontSize: 16,
+      padding: 14,
+      fontSize: 19,
       color: isDarkMode ? '#eee' : '#333',
       backgroundColor: isDarkMode ? '#333' : '#fff',
     },
@@ -151,20 +151,19 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
     },
 
     uploadSection: {
-      marginBottom: 20,
+      marginBottom: 10,
     },
 
-    uploadButton: {
+     uploadButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 18,
-      borderRadius: 16,
+      padding: 14,
+      borderRadius: 20,
       gap: 12,
       overflow: 'hidden',
-      elevation: 4,
+      elevation: 6,
     },
-
     uploadButtonDefault: {},
     uploadButtonSuccess: {},
 
@@ -175,7 +174,7 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
     },
 
     uploadSuccessText: (dark: boolean) => ({
-      marginTop: 8,
+      marginTop: 5,
       fontSize: 13,
       color: COLORS.success,
       textAlign: 'center',
@@ -190,22 +189,23 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
       fontWeight: '500',
     }),
 
-    summaryCard: {
-      padding: 18,
+     summaryCard: {
+      padding: 15,
       borderRadius: 20,
-      marginTop: 16,
-      elevation: 5,
+      marginTop: 5,
+      elevation: 6,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
+      shadowOpacity: 1.2,
+      shadowRadius: 10,
       overflow: 'hidden',
     },
+
 
     summaryRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: 7,
       alignItems: 'center',
     },
 
@@ -228,15 +228,15 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
     },
 
     payButton: {
-      paddingVertical: 16,
-      paddingHorizontal: 24,
+      paddingVertical: 15,
+      paddingHorizontal: 20,
       borderRadius: 20,
       marginTop: 20,
-      marginHorizontal: 16,
+      marginHorizontal: 55,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      elevation: 6,
+      elevation: 7,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
@@ -267,7 +267,7 @@ export const createDeclaracaoNotaStyles = (isDarkMode: boolean) =>
       fontSize: 13,
       color: isDarkMode ? '#bbb' : '#555',
       fontStyle: 'italic',
-      marginTop: 20,
+      marginTop:30,
       textAlign: 'center',
       lineHeight: 18,
     },

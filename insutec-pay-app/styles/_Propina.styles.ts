@@ -103,12 +103,12 @@ export const createPropinaStyles = (isDarkMode: boolean) =>
     /* ---------- MESES GRID ---------- */
     monthsGrid: {
       justifyContent: 'space-between',
-      paddingHorizontal: 4,
+      paddingHorizontal: 3,
     },
 
     monthItem: {
-      width: (width - 64) / 3,
-      margin: 4,
+      width: (width - 88) / 3,
+      margin: 3,
       padding: 14,
       borderRadius: 9,
       alignItems: 'center',

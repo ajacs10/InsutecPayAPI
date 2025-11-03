@@ -67,8 +67,8 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
       left: 0,
       right: 0,
       height: 80,
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
+      borderBottomLeftRadius: 40,
+      borderBottomRightRadius: 40,
       opacity: 0.9,
     },
 
@@ -152,18 +152,18 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
     },
 
     uploadSection: {
-      marginBottom: 20,
+      marginBottom: 10,
     },
 
     uploadButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 18,
-      borderRadius: 16,
+      padding: 15,
+      borderRadius: 20,
       gap: 12,
       overflow: 'hidden',
-      elevation: 4,
+      elevation: 6,
     },
 
     uploadButtonDefault: {},
@@ -176,7 +176,7 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
     },
 
     uploadSuccessText: (dark: boolean) => ({
-      marginTop: 8,
+      marginTop: 6,
       fontSize: 13,
       color: COLORS.success,
       textAlign: 'center',
@@ -192,14 +192,14 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
     }),
 
     summaryCard: {
-      padding: 18,
+      padding: 15,
       borderRadius: 20,
-      marginTop: 16,
-      elevation: 5,
+      marginTop: 5,
+      elevation: 6,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
+      shadowOpacity: 1.2,
+      shadowRadius: 10,
       overflow: 'hidden',
     },
 
@@ -229,15 +229,15 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
     },
 
     payButton: {
-      paddingVertical: 16,
-      paddingHorizontal: 24,
+      paddingVertical: 15,
+      paddingHorizontal: 20,
       borderRadius: 20,
       marginTop: 20,
-      marginHorizontal: 16,
+      marginHorizontal: 55,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      elevation: 6,
+      elevation: 7,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
@@ -261,7 +261,7 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
       color: '#fff',
       fontSize: 16,
       fontWeight: 'bold',
-      marginLeft: 8,
+      marginLeft: 5,
     },
 
     infoText: {
@@ -270,7 +270,7 @@ export const createDeclaracaoStyles = (isDarkMode: boolean) =>
       fontStyle: 'italic',
       marginTop: 20,
       textAlign: 'center',
-      lineHeight: 18,
+      lineHeight: 17,
     },
   });
 

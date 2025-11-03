@@ -141,8 +141,7 @@ export default function LoginScreen() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Insutec Pay</Text>
-          <Text style={styles.subtitle}>Sistema de pagamentos do INSUTEC</Text>
+          <Text style={styles.subtitle}>Sistema de pagamentos de emolumento INSUTEC</Text>
         </View>
 
         {/* Formulário de Login */}

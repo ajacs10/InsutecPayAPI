@@ -1,268 +1,248 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+// components/FinanceContext.tsx
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
-// --- CONFIGURAÇÃO ---
-const SALDO_STORAGE_KEY = '@insutecpay_saldo';
-const COMPROVATIVOS_STORAGE_KEY = '@insutecpay_comprovativos';
+// Chaves
+const SALDO_KEY = '@insutecpay_saldo';
+const COMPROVATIVOS_KEY = '@insutecpay_comprovativos';
+const DUMMY_SALDO = 500000.0;
 
-const DUMMY_SALDO_INICIAL = 5000000000.00;
-const DUMMY_COMPROVATIVOS_INICIAIS: any[] = [];
+// Tipos
+export type Comprovativo = {
+  id: string;
+  valor: number;
+  tipo: 'Débito' | 'Crédito';
+  descricao: string;
+  data: string;
+  pdfPath?: string;
+  metodo_pagamento?: string;
+  tipo_servico?: string;
+  estudante_alvo_id?: string;
+  qrCode?: string;
+  meses_selecionados?: string;
+  valor_propina?: string;
+  valor_multas?: string;
+  saldoAnterior?: number;
+  saldoAtual?: number;
+  mensagem_sucesso?: string;
+};
 
-type Comprovativo = {
-    id: string;
-    valor: number;
-    tipo: 'Crédito' | 'Débito';
-    descricao: string;
-    data: string;
-    pdfPath?: string;
-    metodo_pagamento?: string;
-    tipo_servico?: string;
-    estudante_alvo_id?: string;
+type ServicoTipo =
+  | 'PROPINA'
+  | 'DECLARACAO_NOTA'
+  | 'DECLARACAO_SEM_NOTA'
+  | 'FOLHA_PROVA'
+  | 'OUTRO';
+
+const MENSAGENS_SUCESSO: Record<ServicoTipo, string> = {
+  PROPINA: 'Propina paga com sucesso! Comprovativo disponível.',
+  DECLARACAO_NOTA: 'Declaração com nota emitida! Baixe seu PDF.',
+  DECLARACAO_SEM_NOTA: 'Declaração sem nota gerada com sucesso!',
+  FOLHA_PROVA: 'Folha de prova liberada! Acesse agora.',
+  OUTRO: 'Pagamento realizado com sucesso!',
 };
 
 type FinanceContextType = {
-    saldo: number;
-    isLoading: boolean;
-    comprovativos: Comprovativo[];
-    updateSaldo: (valor: number) => Promise<void>;
-    addComprovativo: (comprovativo: Comprovativo) => Promise<void>;
-    resetSaldo: () => Promise<void>;
-    processarPagamento: (
-        valor: number, 
-        descricao: string, 
-        id_transacao_unica?: string, 
-        metodo_pagamento?: string, 
-        tipo_servico?: string, 
-        estudante_alvo_id?: string
-    ) => Promise<boolean>;
+  saldo: number;
+  isLoading: boolean;
+  comprovativos: Comprovativo[];
+  processarPagamento: (
+    valor: number,
+    descricao: string,
+    id: string,
+    metodo?: string,
+    servico?: ServicoTipo,
+    estudante?: string,
+    meses?: string,
+    propina?: string,
+    multas?: string
+  ) => Promise<boolean>;
+  creditar: (valor: number) => Promise<void>;
+  reset: () => Promise<void>;
 };
 
+// Contexto
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export const useFinance = () => {
-    const context = useContext(FinanceContext);
-    if (context === undefined) {
-        throw new Error('useFinance must be used within a FinanceProvider');
-    }
-    return context;
+  const ctx = useContext(FinanceContext);
+  if (!ctx) throw new Error('useFinance deve ser usado dentro de FinanceProvider');
+  return ctx;
 };
 
-// --- PROVIDER ---
+// Provider
 export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [saldo, setSaldo] = useState<number>(0);
-    const [comprovativos, setComprovativos] = useState<Comprovativo[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+  const [saldo, setSaldo] = useState<number>(0);
+  const [comprovativos, setComprovativos] = useState<Comprovativo[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const loadData = useCallback(async () => {
-        try {
-            const storedSaldo = await AsyncStorage.getItem(SALDO_STORAGE_KEY);
-            const storedComprovativos = await AsyncStorage.getItem(COMPROVATIVOS_STORAGE_KEY);
+  const load = async () => {
+    try {
+      const [saldoStr, compStr] = await Promise.all([
+        AsyncStorage.getItem(SALDO_KEY),
+        AsyncStorage.getItem(COMPROVATIVOS_KEY),
+      ]);
+      setSaldo(saldoStr ? parseFloat(saldoStr) : DUMMY_SALDO);
+      setComprovativos(compStr ? JSON.parse(compStr) : []);
+    } catch (e) {
+      console.error('Erro ao carregar finanças:', e);
+      setSaldo(DUMMY_SALDO);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            if (storedSaldo !== null) {
-                setSaldo(parseFloat(storedSaldo));
-            } else {
-                await AsyncStorage.setItem(SALDO_STORAGE_KEY, DUMMY_SALDO_INICIAL.toString());
-                setSaldo(DUMMY_SALDO_INICIAL);
-            }
+  const saveSaldo = async (v: number) => {
+    setSaldo(v);
+    await AsyncStorage.setItem(SALDO_KEY, v.toFixed(2));
+  };
 
-            if (storedComprovativos !== null) {
-                setComprovativos(JSON.parse(storedComprovativos));
-            } else {
-                setComprovativos(DUMMY_COMPROVATIVOS_INICIAIS);
-            }
-        } catch (error) {
-            console.error('[FinanceContext] Erro ao carregar dados:', error);
-            setSaldo(DUMMY_SALDO_INICIAL);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+  const saveComprovativos = async (lista: Comprovativo[]) => {
+    setComprovativos(lista);
+    await AsyncStorage.setItem(COMPROVATIVOS_KEY, JSON.stringify(lista));
+  };
 
-    const updateSaldo = useCallback(async (novoValor: number) => {
-        try {
-            setSaldo(novoValor);
-            await AsyncStorage.setItem(SALDO_STORAGE_KEY, novoValor.toString());
-        } catch (error) {
-            console.error('[FinanceContext] Erro ao salvar novo saldo:', error);
-        }
-    }, []);
+  const generateTxt = (
+    id: string,
+    desc: string,
+    valor: number,
+    metodo: string,
+    servico: string,
+    estudante: string,
+    saldoAnt: number,
+    saldoAt: number,
+    meses?: string,
+    propina?: string,
+    multas?: string
+  ): string => {
+    const data = new Date().toLocaleString('pt-AO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-    const addComprovativo = useCallback(async (comprovativo: Comprovativo) => {
-        try {
-            setComprovativos(prev => {
-                const newComprovativos = [comprovativo, ...prev];
-                AsyncStorage.setItem(COMPROVATIVOS_STORAGE_KEY, JSON.stringify(newComprovativos));
-                return newComprovativos;
-            });
-        } catch (error) {
-            console.error('[FinanceContext] Erro ao adicionar comprovativo:', error);
-        }
-    }, []);
+    const f = (v: number) =>
+      v.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });
 
-    // CORREÇÃO: Geração de PDF simplificada sem StorageAccessFramework
-    const generateComprovativoContent = (
-        idTransacao: string,
-        descricao: string,
-        valor: number,
-        metodo_pagamento?: string,
-        tipo_servico?: string,
-        estudante_alvo_id?: string,
-        saldoAnterior?: number,
-        saldoAtual?: number
-    ): string => {
-        const currentDate = new Date().toLocaleString('pt-AO');
-        const formatCurrency = (v: number) => v.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' });
+    return `
+COMPROVATIVO INSUTEC PAY
+════════════════════════════════════════
+ID: ${id}
+Data: ${data}
+Serviço: ${servico}
+Descrição: ${desc}
+Estudante: ${estudante || '—'}
+${meses ? `Meses: ${meses}` : ''}
+----------------------------------------
+Valor: ${f(valor)}
+${propina ? `Propina: ${f(parseFloat(propina))}` : ''}
+${multas && parseFloat(multas) > 0 ? `Multa: + ${f(parseFloat(multas))}` : ''}
+Método: ${metodo}
+----------------------------------------
+Saldo Anterior: ${f(saldoAnt)}
+Saldo Atual: ${f(saldoAt)}
+════════════════════════════════════════
+Emissão: ${new Date().toLocaleString('pt-AO')}
+    `.trim();
+  };
 
-        return `
-COMPROVATIVO DE PAGAMENTO - INSUTEC PAY
-========================================
+  const processarPagamento = async (
+    valor: number,
+    descricao: string,
+    id: string,
+    metodo = 'Carteira Digital',
+    servico: ServicoTipo = 'OUTRO',
+    estudante = '',
+    meses = '',
+    propina = '',
+    multas = ''
+  ): Promise<boolean> => {
+    if (saldo < valor) {
+      Alert.alert('Saldo Insuficiente', `Você precisa de ${formatCurrency(valor)}`);
+      return false;
+    }
 
-ID da Transação: ${idTransacao}
-Data/Hora: ${currentDate}
-Status: PAGO
+    const saldoAnt = saldo;
+    const novoSaldo = saldo - valor;
 
-DETALHES DO PAGAMENTO:
-----------------------
-Serviço: ${tipo_servico || 'Serviço Académico'}
-Descrição: ${descricao}
-${estudante_alvo_id ? `Estudante: ${estudante_alvo_id}` : ''}
+    await saveSaldo(novoSaldo);
 
-INFORMAÇÕES FINANCEIRAS:
-------------------------
-Valor do Pagamento: ${formatCurrency(valor)}
-Método de Pagamento: ${metodo_pagamento || 'Cartão Atlântico Universitário+'}
-${saldoAnterior ? `Saldo Anterior: ${formatCurrency(saldoAnterior)}` : ''}
-${saldoAtual ? `Saldo Atual: ${formatCurrency(saldoAtual)}` : ''}
+    const qrData = JSON.stringify({ id, valor, data: new Date().toISOString(), estudante, servico, metodo });
+    let pdfPath: string | undefined;
 
-========================================
-Este é um comprovativo eletrónico gerado
-automaticamente pelo sistema InsutecPay.
+    if (Platform.OS !== 'web') {
+      try {
+        const dir = `${FileSystem.documentDirectory}comprovativos/`;
+        const info = await FileSystem.getInfoAsync(dir);
+        if (!info.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
 
-Data de emissão: ${currentDate}
-Transação ID: ${idTransacao}
-========================================
-        `.trim();
+        const filePath = `${dir}${id}.txt`;
+        const txt = generateTxt(id, descricao, valor, metodo, servico, estudante, saldoAnt, novoSaldo, meses, propina, multas);
+        await FileSystem.writeAsStringAsync(filePath, txt, { encoding: FileSystem.EncodingType.UTF8 });
+        pdfPath = filePath;
+      } catch (e) {
+        console.warn('Falha ao gerar TXT:', e);
+      }
+    }
+
+    const comprovativo: Comprovativo = {
+      id,
+      valor,
+      tipo: 'Débito',
+      descricao,
+      data: new Date().toISOString(),
+      pdfPath,
+      metodo_pagamento: metodo,
+      tipo_servico: servico,
+      estudante_alvo_id: estudante,
+      qrCode: qrData,
+      meses_selecionados: meses,
+      valor_propina: propina,
+      valor_multas: multas,
+      saldoAnterior: saldoAnt,
+      saldoAtual: novoSaldo,
+      mensagem_sucesso: MENSAGENS_SUCESSO[servico],
     };
 
-    const processarPagamento = useCallback(async (
-        valor: number, 
-        descricao: string, 
-        id_transacao_unica?: string, 
-        metodo_pagamento?: string, 
-        tipo_servico?: string, 
-        estudante_alvo_id?: string
-    ): Promise<boolean> => {
-        console.log(`[FinanceContext] Processando pagamento: ${valor}, saldo atual: ${saldo}`);
-        
-        if (saldo < valor) {
-            console.error('[FinanceContext] Saldo insuficiente para processar pagamento.');
-            Alert.alert('Erro', 'Saldo insuficiente para processar o pagamento.');
-            return false;
-        }
+    await saveComprovativos([comprovativo, ...comprovativos]);
+    return true;
+  };
 
-        try {
-            const saldoAnterior = saldo;
-            const novoSaldo = saldo - valor;
-            await updateSaldo(novoSaldo);
+  const creditar = async (valor: number) => {
+    if (valor <= 0) return;
+    await saveSaldo(saldo + valor);
+  };
 
-            const idTransacao = id_transacao_unica || `TX-${Date.now()}`;
-            let pdfPath: string | undefined;
+  const reset = async () => {
+    await AsyncStorage.multiRemove([SALDO_KEY, COMPROVATIVOS_KEY]);
+    setSaldo(DUMMY_SALDO);
+    setComprovativos([]);
+    Alert.alert('Reset', 'Dados financeiros resetados.');
+  };
 
-            // CORREÇÃO: Geração de arquivo simplificada sem permissões complexas
-            if (Platform.OS !== 'web') {
-                try {
-                    // Usando documentDirectory que não requer permissões especiais
-                    const directory = `${FileSystem.documentDirectory}comprovativos/`;
-                    
-                    // Verifica se o diretório existe, se não, cria
-                    const dirInfo = await FileSystem.getInfoAsync(directory);
-                    if (!dirInfo.exists) {
-                        await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-                    }
+  useEffect(() => {
+    load();
+  }, []);
 
-                    const fileName = `comprovativo_${idTransacao}.txt`;
-                    const filePath = `${directory}${fileName}`;
-                    
-                    const comprovativoContent = generateComprovativoContent(
-                        idTransacao,
-                        descricao,
-                        valor,
-                        metodo_pagamento,
-                        tipo_servico,
-                        estudante_alvo_id,
-                        saldoAnterior,
-                        novoSaldo
-                    );
-
-                    await FileSystem.writeAsStringAsync(filePath, comprovativoContent, {
-                        encoding: FileSystem.EncodingType.UTF8
-                    });
-                    
-                    pdfPath = filePath;
-                    console.log(`✅ Comprovativo salvo em: ${pdfPath}`);
-                    
-                } catch (pdfError) {
-                    console.log('📝 Comprovativo não gerado (continuação normal):', pdfError);
-                    // Não bloqueia o pagamento se o arquivo falhar
-                }
-            } else {
-                console.log('🌐 Ambiente web: comprovativo não salvo localmente');
-            }
-
-            const novoComprovativo: Comprovativo = {
-                id: idTransacao,
-                valor,
-                tipo: 'Débito',
-                descricao,
-                data: new Date().toISOString(),
-                pdfPath,
-                metodo_pagamento,
-                tipo_servico,
-                estudante_alvo_id
-            };
-
-            await addComprovativo(novoComprovativo);
-
-            console.log(`[FinanceContext] ✅ Pagamento de ${valor} processado com SUCESSO. Novo saldo: ${novoSaldo}`);
-            return true;
-
-        } catch (error) {
-            console.error('[FinanceContext] ❌ Erro crítico ao processar pagamento:', error);
-            Alert.alert('Erro', 'Não foi possível processar o pagamento. Tente novamente.');
-            return false;
-        }
-    }, [saldo, updateSaldo, addComprovativo]);
-
-    const resetSaldo = useCallback(async () => {
-        try {
-            await AsyncStorage.removeItem(SALDO_STORAGE_KEY);
-            await AsyncStorage.removeItem(COMPROVATIVOS_STORAGE_KEY);
-            console.log('[FinanceContext] AsyncStorage limpo. Recarregando dados...');
-            await loadData();
-        } catch (error) {
-            console.error('[FinanceContext] Erro ao resetar dados:', error);
-        }
-    }, [loadData]);
-
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
-    const contextValue: FinanceContextType = {
-        saldo,
-        isLoading,
-        comprovativos,
-        updateSaldo,
-        addComprovativo,
-        resetSaldo,
-        processarPagamento,
-    };
-
-    return (
-        <FinanceContext.Provider value={contextValue}>
-            {children}
-        </FinanceContext.Provider>
-    );
+  return (
+    <FinanceContext.Provider
+      value={{ saldo, isLoading, comprovativos, processarPagamento, creditar, reset }}
+    >
+      {children}
+    </FinanceContext.Provider>
+  );
 };
+
+const formatCurrency = (value: number): string =>
+  value.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });

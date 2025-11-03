@@ -25,7 +25,7 @@ import {
 import { formatCurrency } from '../../../src/utils/formatters';
 
 const SERVICE_NAME = 'Declaração com Notas';
-const BASE_VALUE = 2500;
+const BASE_VALUE = 15000;
 
 const BIUploadComponent = ({
   isDarkMode,
@@ -160,7 +160,7 @@ export default function DeclaracaoNotaScreen() {
             colors={GRADIENT.header(isDarkMode)}
             style={styles.headerGradient}
           />
-          <Text style={styles.header}>Solicitação de {SERVICE_NAME}</Text>
+          <Text style={styles.header}> {SERVICE_NAME}</Text>
         </View>
 
         {/* Aluno */}
@@ -250,7 +250,7 @@ export default function DeclaracaoNotaScreen() {
           >
             <FontAwesome name="shopping-cart" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.payButtonText}>
-              Adicionar ao Carrinho ({formatCurrency(subtotal)})
+             pagar ({formatCurrency(subtotal)})
             </Text>
           </TouchableOpacity>
         </LinearGradient>

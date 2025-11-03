@@ -1,16 +1,19 @@
 import { StyleSheet, Platform, Dimensions } from 'react-native';
 
+const { width } = Dimensions.get('window');
+const isSmall = width < 380;
+
 export const COLORS = {
-  primary: '#0b5394', // Azul Principal
-  primaryDark: '#00CC00', // Verde Acentuação
-  secondary: '#00FFFF', // Ciano/Turquesa
+  primary: '#0b5394',        // Azul Principal
+  primaryDark: '#00CC00',    // Verde Acentuação
+  secondary: '#00FFFF',      // Ciano/Turquesa
   accent: '#00FFFF',
   lightBackground: '#f8f9fa',
-  darkBackground: '#1F1F1F', // Deeper dark for better contrast
-  cardBackground: '#2A2A2A', // Darker card background
+  darkBackground: '#1A1A1A', // Fundo escuro mais suave
+  cardBackground: '#252525', // Card escuro com contraste
   textDark: '#333',
-  textLight: '#E0E0E0', // Brighter text for dark mode
-  text: '#E0E0E0',
+  textLight: '#E8E8E8',      // Texto claro mais legível
+  text: '#E8E8E8',
   subText: '#AAAAAA',
   white: '#FFFFFF',
   gray: '#666666',
@@ -24,162 +27,151 @@ export type StyleProps = {
   isDarkMode: boolean;
 };
 
-const staticStyles = StyleSheet.create({
-  // No static styles for scrollContentWrapper anymore
-});
+const staticStyles = StyleSheet.create({});
 
 export const styles = {
   ...staticStyles,
+
   fullScreenContainer: ({ isDarkMode }: StyleProps) => ({
     flex: 1,
     backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
   }),
-  container: ({ isDarkMode }: StyleProps) => ({
-    flex: 1,
-    padding: 10,
-    backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }),
+
   scrollContainer: ({ isDarkMode }: StyleProps) => ({
     flex: 1,
     width: '100%',
     backgroundColor: isDarkMode ? COLORS.darkBackground : COLORS.lightBackground,
   }),
+
   scrollContentWrapper: ({ isDarkMode }: StyleProps) => ({
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
-    backgroundColor: 'transparent', // Ensure parent background is visible
+    paddingHorizontal: isSmall ? 12 : 16,
+    paddingTop: 20,
+    paddingBottom: 40,
+    alignItems: 'center',
   }),
+
   profileCard: ({ isDarkMode }: StyleProps) => ({
     backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.white,
-    padding: 20,
-    borderRadius: 20,
-    width: '90%',
-    marginTop: 60,
+    padding: 24,
+    borderRadius: 28,
+    width: '92%',
+    maxWidth: 420,
+    marginTop: 50,
     alignItems: 'center',
-    shadowColor: isDarkMode ? COLORS.darkBackground : '#6fa8dc',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.7,
-    shadowRadius: 2,
-    elevation: Platform.OS === 'android' ? 4 : 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: isDarkMode ? 0.5 : 0.15,
+    shadowRadius: 16,
+    elevation: Platform.OS === 'android' ? 10 : 0,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: isDarkMode ? '#333' : 'transparent',
   }),
+
   avatar: ({ isDarkMode }: StyleProps) => ({
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: isDarkMode ? '#454545' : '#E8E8E8',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: isDarkMode ? '#3A3A3A' : '#E8E8E8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: isDarkMode ? COLORS.gray : '#CCCCCC',
+    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: isDarkMode ? COLORS.primary : '#CCCCCC',
   }),
+
   avatarText: ({ isDarkMode }: StyleProps) => ({
-    fontSize: 32,
-    color: isDarkMode ? COLORS.textLight : COLORS.textDark,
+    fontSize: 36,
+    color: isDarkMode ? COLORS.accent : COLORS.primary,
     fontWeight: 'bold',
   }),
+
   nameText: ({ isDarkMode }: StyleProps) => ({
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: isDarkMode ? COLORS.textLight : COLORS.textDark,
     marginBottom: 6,
+    textAlign: 'center',
   }),
+
   studentNumberText: ({ isDarkMode }: StyleProps) => ({
     fontSize: 17,
-    color: isDarkMode ? COLORS.subText : COLORS.gray,
-    marginBottom: 18,
+    color: isDarkMode ? '#00CC00' : COLORS.primary,
+    marginBottom: 20,
+    fontWeight: '600',
   }),
+
   infoBlock: ({ isDarkMode }: StyleProps) => ({
     width: '100%',
-    marginTop: 15,
-    padding: 15,
-    backgroundColor: isDarkMode ? COLORS.darkBackground : '#d2caca',
-    borderRadius: 10,
-    borderWidth: isDarkMode ? 1 : 0,
-    borderColor: isDarkMode ? COLORS.gray : 'transparent',
+    marginTop: 20,
+    padding: 18,
+    backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F8FF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3A3A3A' : '#D0E8FF',
   }),
+
   infoTitle: ({ isDarkMode }: StyleProps) => ({
     fontSize: 18,
     fontWeight: '800',
     color: isDarkMode ? COLORS.primary : COLORS.primaryDark,
-    marginBottom: 8,
+    marginBottom: 10,
   }),
+
   infoDetail: ({ isDarkMode }: StyleProps) => ({
     fontSize: 16,
-    color: isDarkMode ? COLORS.text : COLORS.textDark,
-    marginBottom: 5,
+    color: isDarkMode ? COLORS.text : '#444',
+    marginBottom: 6,
+    fontWeight: '500',
   }),
+
   toggleContainer: ({ isDarkMode }: StyleProps) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 30,
-    width: '90%',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.lightBackground,
-    shadowColor: isDarkMode ? COLORS.darkBackground : '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: Platform.OS === 'android' ? 2 : 0,
+    marginTop: 32,
+    width: '92%',
+    maxWidth: 420,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: isDarkMode ? '#2C2C2C' : '#FFFFFF',
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3A3A3A' : '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   }),
-  toggleLabelContainer: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+
+  toggleLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
   label: ({ isDarkMode }: StyleProps) => ({
     fontSize: 16,
     fontWeight: '600',
     color: isDarkMode ? COLORS.textLight : COLORS.textDark,
   }),
-  logoutButton: ({ isDarkMode }: StyleProps) => ({
-    backgroundColor: COLORS.danger,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    width: '70%',
-    alignItems: 'center',
-    marginTop: 30,
-    shadowColor: isDarkMode ? COLORS.danger : '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: Platform.OS === 'android' ? 6 : 0,
-  }),
-  logoutButtonText: ({ isDarkMode }: StyleProps) => ({
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  }),
-  errorText: ({ isDarkMode }: StyleProps) => ({
-    color: COLORS.error,
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 10,
-  }),
-  linkButton: ({ isDarkMode }: StyleProps) => ({
-    marginTop: 15,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: isDarkMode ? COLORS.cardBackground : COLORS.lightBackground,
-  }),
-  linkText: ({ isDarkMode }: StyleProps) => ({
-    color: COLORS.primary,
-    fontSize: 16,
-    textAlign: 'center',
-  }),
+
   statusContainer: ({ isDarkMode }: StyleProps) => ({
     marginTop: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: isDarkMode ? COLORS.cardBackground : '#f0f0f0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: isDarkMode ? '#2C2C2C' : '#F0FFF0',
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#3A3A3A' : '#C8E6C9',
   }),
+
   statusText: ({ isDarkMode }: StyleProps) => ({
-    color: isDarkMode ? COLORS.subText : COLORS.gray,
+    color: isDarkMode ? '#00FF00' : '#006400',
     marginLeft: 10,
     fontSize: 14,
     fontWeight: '600',

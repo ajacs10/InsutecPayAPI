@@ -15,9 +15,9 @@ import { Stack, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { useAuth } from '../../../components/AuthContext';
 import { useTheme } from '../ThemeContext/ThemeContext';
+import { useFinance } from '../../../components/FinanceContext';
 import {
   createPropinaStyles,
   sharedFinanceStyles,
@@ -29,7 +29,6 @@ import {
 } from '../../../styles/_Propina.styles';
 
 const { width } = Dimensions.get('window');
-
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 });
 
@@ -42,7 +41,6 @@ const MONTHS_MAP: { [key: string]: number } = {
   Abril: 4, Maio: 5, Junho: 6, Julho: 7,
 };
 
-const MESES_JA_PAGOS: string[] = [];
 const MESES_ACADEMICOS = [
   'Novembro', 'Dezembro', 'Janeiro', 'Fevereiro', 'Março',
   'Abril', 'Maio', 'Junho', 'Julho',
@@ -54,6 +52,7 @@ export default function PropinaScreen() {
   const router = useRouter();
   const { aluno } = useAuth();
   const { isDarkMode } = useTheme();
+  const { saldo, comprovativos, processarPagamento } = useFinance();
 
   const [loading, setLoading] = useState(false);
   const [targetStudentId] = useState(aluno?.nr_estudante || 'A-12345');
@@ -73,7 +72,6 @@ export default function PropinaScreen() {
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
     const targetMonth = MONTHS_MAP[month];
-
     let academicYear = currentYear;
     if (targetMonth >= 11) academicYear = currentYear;
     else academicYear = currentYear + 1;
@@ -81,7 +79,6 @@ export default function PropinaScreen() {
     if (academicYear > currentYear || (academicYear === currentYear && targetMonth > currentMonth)) {
       return { hasFine: false, isFuture: true, fineAmount: 0 };
     }
-
     if (academicYear === currentYear && targetMonth <= currentMonth) {
       if (currentDay >= 11) {
         const weeksLate = Math.ceil((currentDay - 10) / 7);
@@ -89,11 +86,16 @@ export default function PropinaScreen() {
       }
       return { hasFine: false, isFuture: false, fineAmount: 0 };
     }
-
     return { hasFine: true, isFuture: false, fineAmount: FINE_MONTH };
   }, []);
 
-  const isMonthPaid = useCallback((month: string) => MESES_JA_PAGOS.includes(month), []);
+  const isMonthPaid = useCallback((month: string) => {
+    return comprovativos.some(c =>
+      c.tipo_servico === 'MENSALIDADE' &&
+      c.estudante_alvo_id === targetStudentId &&
+      c.descricao.includes(month)
+    );
+  }, [comprovativos, targetStudentId]);
 
   const getTotalWithFines = useMemo(() => {
     return selectedMonths.reduce((total, month) => {
@@ -119,49 +121,67 @@ export default function PropinaScreen() {
     );
   }, [isMonthPaid]);
 
-  const handlePagarComCartao = useCallback(async () => {
+  const pagarComCarteira = useCallback(async () => {
     if (selectedMonths.length === 0) {
       Alert.alert('Atenção', 'Selecione pelo menos um mês para pagar.');
       return;
     }
 
-    const paidSelected = selectedMonths.filter(isMonthPaid);
-    if (paidSelected.length > 0) {
-      Alert.alert('Erro', `Os meses já pagos: ${paidSelected.join(', ')}`);
+    if (getTotalWithFines > saldo) {
+      Alert.alert(
+        'Saldo Insuficiente',
+        `Você precisa de ${formatCurrency(getTotalWithFines)}.\nSaldo atual: ${formatCurrency(saldo)}`
+      );
       return;
     }
 
     setLoading(true);
+
     try {
       const transacaoId = `PROPINA-${targetStudentId}-${Date.now()}`;
       const descricao = `Propina: ${selectedMonths.join(', ')} (2025/2026)`;
 
-      router.push({
-        pathname: '/telas/financeiro/CarteiraScreen',
-        params: {
-          id_transacao_unica: transacaoId,
-          valor_total: getTotalWithFines.toFixed(2),
-          descricao,
-          tipo_servico: 'MENSALIDADE',
-          estudante_alvo_id: targetStudentId,
-          meses_selecionados: selectedMonths.join(','),
-          ano_academico: '2025/2026',
-          valor_propina: (MONTHLY_FEE * selectedMonths.length).toFixed(2),
-          valor_multas: getTotalFines.toFixed(2),
-        },
-      });
-    } catch {
-      Alert.alert('Erro', 'Falha ao iniciar pagamento.');
+      const sucesso = await processarPagamento(
+        getTotalWithFines,
+        descricao,
+        transacaoId,
+        'Carteira Digital',
+        'MENSALIDADE',
+        targetStudentId,
+        selectedMonths.join(','),
+        (MONTHLY_FEE * selectedMonths.length).toFixed(2),
+        getTotalFines.toFixed(2)
+      );
+
+      if (sucesso) {
+        Alert.alert('Sucesso', 'Pagamento realizado com sucesso!', [
+          { text: 'OK', onPress: () => router.replace({
+            pathname: '/telas/Success/SuccessScreen',
+            params: { comprovativoId: transacaoId }
+          })}
+        ]);
+      } else {
+        Alert.alert('Erro', 'Falha ao processar pagamento.');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Ocorreu um erro inesperado.');
     } finally {
       setLoading(false);
     }
-  }, [selectedMonths, targetStudentId, getTotalWithFines, getTotalFines, isMonthPaid, router]);
+  }, [
+    selectedMonths,
+    getTotalWithFines,
+    saldo,
+    targetStudentId,
+    processarPagamento,
+    router
+  ]);
 
   const renderMonthItem = ({ item }: { item: string }) => {
     const isSelected = selectedMonths.includes(item);
     const { hasFine, isFuture, fineAmount } = getMonthFineInfo(item);
     const isPaid = isMonthPaid(item);
-
     return (
       <TouchableOpacity
         style={getMonthItemStyle(styles, isSelected, hasFine, isFuture, isPaid)}
@@ -194,7 +214,6 @@ export default function PropinaScreen() {
   return (
     <SafeAreaView style={sharedStyles.safeArea}>
       <Stack.Screen options={{ title: 'Pagamento de Propina 2025/2026' }} />
-
       <ScrollView contentContainerStyle={styles.container}>
         <View style={{ position: 'relative', marginBottom: 20 }}>
           <LinearGradient colors={GRADIENT.header(isDarkMode)} style={styles.headerGradient} />
@@ -205,23 +224,18 @@ export default function PropinaScreen() {
           <Text style={styles.sectionTitle}>Aluno</Text>
           <Text style={styles.normalText}>ID: {targetStudentId}</Text>
           <Text style={styles.normalText}>Nome: {aluno?.nome || 'Você'}</Text>
+          <Text style={styles.normalText}>Saldo: {formatCurrency(saldo)}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ano Acadêmico 2025/2026</Text>
           <Text style={styles.normalText}>Período: Nov 2025 → Jul 2026</Text>
           <Text style={styles.infoText}>Valor mensal: {formatCurrency(MONTHLY_FEE)}</Text>
-          {MESES_JA_PAGOS.length === 0 && (
-            <View style={styles.successMessage}>
-              <Text style={styles.successText}>Todos os meses disponíveis para pagamento</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Selecione os Meses</Text>
           <Text style={styles.infoText}>Nov 2025 → Jul 2026</Text>
-
           <FlatList
             data={visibleMonths}
             renderItem={renderMonthItem}
@@ -231,7 +245,6 @@ export default function PropinaScreen() {
             contentContainerStyle={styles.monthsGrid}
           />
 
-          {/* BOTÃO VER MAIS — FUNCIONA 100% */}
           {MESES_ACADEMICOS.length > INITIAL_VISIBLE && (
             <TouchableOpacity
               onPress={() => setShowAll(prev => !prev)}
@@ -268,7 +281,6 @@ export default function PropinaScreen() {
               <Text style={styles.legendText}>Já pago</Text>
             </View>
           </View>
-
           <Text style={styles.infoText}>Multas aplicadas a partir do dia 11 de cada mês</Text>
         </View>
 
@@ -297,12 +309,19 @@ export default function PropinaScreen() {
         )}
 
         <LinearGradient
-          colors={selectedMonths.length === 0 || loading ? GRADIENT.payButtonDisabled : GRADIENT.payButton(isDarkMode)}
-          style={[styles.payButton, (selectedMonths.length === 0 || loading) && styles.payButtonDisabled]}
+          colors={
+            selectedMonths.length === 0 || getTotalWithFines > saldo
+              ? GRADIENT.payButtonDisabled
+              : GRADIENT.payButton(isDarkMode)
+          }
+          style={[
+            styles.payButton,
+            (selectedMonths.length === 0 || getTotalWithFines > saldo) && styles.payButtonDisabled
+          ]}
         >
           <TouchableOpacity
-            onPress={handlePagarComCartao}
-            disabled={selectedMonths.length === 0 || loading}
+            onPress={pagarComCarteira}
+            disabled={selectedMonths.length === 0 || getTotalWithFines > saldo || loading}
             style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center' }}
             activeOpacity={0.9}
           >
@@ -310,8 +329,12 @@ export default function PropinaScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Feather name="credit-card" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.payButtonText}>Pagar {formatCurrency(getTotalWithFines)}</Text>
+                <Feather name="wallet" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.payButtonText}>
+                  {getTotalWithFines > saldo
+                    ? 'Saldo Insuficiente'
+                    : `Pagar com Carteira: ${formatCurrency(getTotalWithFines)}`}
+                </Text>
               </>
             )}
           </TouchableOpacity>
