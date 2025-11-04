@@ -1,252 +1,202 @@
-import React, { useState, useEffect, useRef } from 'react'; // Importamos useRef
+// app/telas/login/login.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // Para o ícone de senha
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../../components/AuthContext';
-import { styles, COLORS } from '../../../styles/Login.styles';
-import { ValidationRules, formatNumeroEstudante, cleanSenha } from '../../../src/utils/validators';
+// Certifica-te que este caminho está correto:
+import { styles, COLORS } from '../../../styles/Login.styles'; 
+import { ValidationRules } from '../../../src/utils/validators';
 
 export default function LoginScreen() {
-  const { signIn, aluno, isLoading: authLoading } = useAuth();
-  
-  // Refs para controle de foco
-  const passwordInputRef = useRef<TextInput>(null); 
+  const { signIn, aluno, loading: authLoading } = useAuth();
+  const passwordInputRef = useRef<TextInput>(null);
 
-  const [numeroEstudante, setNumeroEstudante] = useState('');
-  const [senha, setSenha] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{numeroEstudante?: string; senha?: string}>({});
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // Novo estado para visibilidade da senha
+  const [identificador, setIdentificador] = useState('');
+  const [senha, setSenha] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ identificador?: string; senha?: string }>({});
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  // ... [O restante dos useEffects (autenticação e limpeza de erros) é o mesmo] ...
-  useEffect(() => {
-    if (aluno && !authLoading) {
-      console.log('[LoginScreen] Usuário já autenticado, redirecionando para home');
-      router.replace('/telas/home/HomeScreen');
-    }
-  }, [aluno, authLoading]);
+  const isEmail = identificador.includes('@');
 
-  useEffect(() => {
-    if (errors.numeroEstudante && numeroEstudante) {
-      setErrors(prev => ({ ...prev, numeroEstudante: undefined }));
-    }
-    if (errors.senha && senha) {
-      setErrors(prev => ({ ...prev, senha: undefined }));
-    }
-  }, [numeroEstudante, senha]);
-  // ... [Fim dos useEffects] ...
+  // === CORREÇÃO CRÍTICA DO REDIRECIONAMENTO ===
+  useEffect(() => {
+    // Verifica se o aluno está logado E se o carregamento inicial terminou.
+    if (aluno && !authLoading) {
+      // Corrigido para as ROTAS CURTAS (dashboard e home), conforme os ficheiros renomeados.
+      const destino = aluno.tipo_usuario === 'ADMIN'
+        ? '/telas/admin/dashboard' 
+        : '/telas/home/home';
+      
+      // Usamos replace para impedir que o utilizador volte para o login
+      router.replace(destino);
+    }
+  }, [aluno, authLoading]);
 
-  const handleNumeroEstudanteChange = (text: string) => {
-    const formatted = formatNumeroEstudante(text);
-    setNumeroEstudante(formatted);
-  };
+  // Limpa erros ao digitar
+  useEffect(() => {
+    if (errors.identificador && identificador) setErrors(prev => ({ ...prev, identificador: undefined }));
+    if (errors.senha && senha) setErrors(prev => ({ ...prev, senha: undefined }));
+  }, [identificador, senha]);
 
-  const handleSenhaChange = (text: string) => {
-    const cleaned = cleanSenha(text);
-    setSenha(cleaned);
-  };
+  // Formata entrada
+  const handleIdentificadorChange = (text: string) => {
+    if (text.includes('@')) {
+      setIdentificador(text.toLowerCase().trim());
+    } else {
+      const numbers = text.replace(/\D/g, '').slice(0, 6);
+      setIdentificador(numbers);
+    }
+  };
 
-  const validateFields = (): boolean => {
-    const validNumero = ValidationRules.numeroEstudante(numeroEstudante);
-    const validSenha = ValidationRules.senha(senha);
+  // Validação
+  const validateFields = (): boolean => {
+    const validIdent = ValidationRules.identificador(identificador);
+    const validSenha = ValidationRules.senha(senha);
 
-    const newErrors: {numeroEstudante?: string; senha?: string} = {};
+    const newErrors: any = {};
+    if (!validIdent.isValid) newErrors.identificador = validIdent.message;
+    if (!validSenha.isValid) newErrors.senha = validSenha.message;
 
-    if (!validNumero.isValid) {
-      newErrors.numeroEstudante = validNumero.message;
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    if (!validSenha.isValid) {
-      newErrors.senha = validSenha.message;
-    }
+  // Login
+  const handleLogin = async () => {
+    if (!validateFields()) {
+      Alert.alert('Erro', 'Corrija os campos destacados.');
+      return;
+    }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    try {
+      setLoading(true);
+      await signIn(identificador.trim(), senha);
+    } catch (error: any) {
+      Alert.alert('Erro no Login', error.message || 'Falha ao conectar.');
+      setSenha('');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleLogin = async () => {
-    if (!validateFields()) {
-      Alert.alert('Campos Inválidos', 'Por favor, corrija os erros nos campos destacados.');
-      return;
-    }
+  const handleRecuperarSenha = () => {
+    // Corrigido para a rota curta 'RecuperarEmail'
+    router.push('/telas/recuperacao/RecuperarEmail'); 
+  };
 
-    try {
-      setLoading(true);
-      await signIn(numeroEstudante.trim(), senha);
-      
-      router.replace('/telas/home/HomeScreen');
-      
-    } catch (error: any) {
-      console.log('[LoginScreen] Erro capturado:', error.message);
-      
-      Alert.alert(
-        'Erro no Login', 
-        error.message,
-        [{ text: 'OK', style: 'default' }]
-      );
-      
-      setSenha('');
-      
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (authLoading) {
+    return (
+      <View style={styles.fullScreenLoading}>
+        <StatusBar translucent backgroundColor="transparent" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.info}>Preparando o sistema...</Text>
+      </View>
+    );
+  }
 
-  const handleRecuperarSenha = () => {
-    try {
-      router.push('/telas/recuperacao/RecuperarEmailScreen');
-    } catch (error) {
-      Alert.alert('Atenção', 'Não foi possível acessar a recuperação de senha.');
-    }
-  };
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar translucent backgroundColor="transparent" />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        {/* Cabeçalho */}
+        <View style={styles.header}>
+          {/* Assumindo que o caminho da imagem está correto */}
+          <Image source={require('../../../assets/images/logo.png')} style={styles.logo} resizeMode="contain" /> 
+          <Text style={styles.title}>INSUTEC PAY</Text>
+          <Text style={styles.subtitle}>Sistema de pagamentos de emolumentos</Text>
+        </View>
 
-  // Se ainda está carregando a autenticação, mostra loading
-  if (authLoading) {
-    return (
-      <View style={styles.fullScreenLoading}> {/* Uso de um estilo mais adequado */}
-        <StatusBar translucent backgroundColor="transparent" />
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.info}>A preparar o sistema...</Text>
-      </View>
-    );
-  }
+        {/* Formulário */}
+        <View style={styles.formContainer}>
+          {/* Identificador */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[styles.input, errors.identificador && styles.inputError]}
+              placeholder={isEmail ? 'Email' : 'Nº de Estudante (6 dígitos)'}
+              placeholderTextColor={COLORS.gray}
+              keyboardType={isEmail ? 'email-address' : 'numeric'}
+              value={identificador}
+              onChangeText={handleIdentificadorChange}
+              editable={!loading}
+              autoCapitalize="none"
+              maxLength={isEmail ? 50 : 6}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
+            />
+            {errors.identificador && <Text style={styles.errorText}>{errors.identificador}</Text>}
+            {!isEmail && identificador && (
+              <Text style={styles.helperText}>{identificador.length}/6 dígitos</Text>
+            )}
+          </View>
 
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar translucent backgroundColor="transparent" />
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Logo e Título */}
-        <View style={styles.header}>
-          <Image
-            source={require('../../../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.subtitle}>Sistema de pagamentos de emolumento INSUTEC</Text>
-        </View>
+          {/* Senha */}
+          <View style={styles.inputContainer}>
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                ref={passwordInputRef}
+                style={[styles.input, errors.senha && styles.inputError, styles.passwordInput]}
+                placeholder="Senha"
+                placeholderTextColor={COLORS.gray}
+                secureTextEntry={!isPasswordVisible}
+                value={senha}
+                onChangeText={setSenha}
+                editable={!loading}
+                onSubmitEditing={handleLogin}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={styles.visibilityToggle}
+                onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                disabled={loading}
+              >
+                <MaterialCommunityIcons
+                  name={isPasswordVisible ? 'eye-off' : 'eye'}
+                  size={24}
+                  color={COLORS.darkGray}
+                />
+              </TouchableOpacity>
+            </View>
+            {errors.senha && <Text style={styles.errorText}>{errors.senha}</Text>}
+          </View>
 
-        {/* Formulário de Login */}
-        <View style={styles.formContainer}>
-          
-          {/* Campo Número de Estudante */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[
-                styles.input,
-                errors.numeroEstudante && styles.inputError
-              ]}
-              placeholder="Número de Estudante (6 dígitos)"
-              placeholderTextColor={COLORS.gray}
-              keyboardType="numeric"
-              value={numeroEstudante}
-              onChangeText={handleNumeroEstudanteChange}
-              editable={!loading}
-              maxLength={6}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-              // Foca no campo de senha após submeter este
-              onSubmitEditing={() => passwordInputRef.current?.focus()} 
-            />
-            {errors.numeroEstudante && (
-              <Text style={styles.errorText}>{errors.numeroEstudante}</Text>
-            )}
-            <Text style={styles.helperText}>
-              {numeroEstudante.length}/6 dígitos
-            </Text>
-          </View>
+          {/* Botão Entrar */}
+          <TouchableOpacity
+            style={[styles.button, (loading || !identificador || !senha) && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading || !identificador || !senha}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Entrar</Text>
+            )}
+          </TouchableOpacity>
 
-          {/* Campo Senha com Botão de Visibilidade */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}> 
-              <TextInput
-                ref={passwordInputRef} // Anexamos a ref aqui
-                style={[
-                  styles.input,
-                  errors.senha && styles.inputError,
-                  styles.passwordInput
-                ]}
-                placeholder="Senha"
-                placeholderTextColor={COLORS.gray}
-                secureTextEntry={!isPasswordVisible} // Controla a visibilidade
-                value={senha}
-                onChangeText={handleSenhaChange}
-                editable={!loading}
-                onSubmitEditing={handleLogin}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="done"
-                maxLength={20}
-              />
-              <TouchableOpacity
-                style={styles.visibilityToggle}
-                onPress={() => setIsPasswordVisible(prev => !prev)}
-                disabled={loading}
-              >
-                <MaterialCommunityIcons 
-                  name={isPasswordVisible ? 'eye-off' : 'eye'} 
-                  size={24} 
-                  color={COLORS.darkGray} 
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.senha && (
-              <Text style={styles.errorText}>{errors.senha}</Text>
-            )}
-          </View>
+          {/* Esqueci a senha */}
+          <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleRecuperarSenha} disabled={loading}>
+            <Text style={styles.forgotPasswordText}>Esqueci a senha</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* Botão de Login */}
-          <TouchableOpacity
-            style={[
-              styles.button, 
-              (loading || !numeroEstudante || !senha) && styles.buttonDisabled
-            ]}
-            onPress={handleLogin}
-            disabled={loading || !numeroEstudante || !senha}
-          >
-            {loading ? (
-              <ActivityIndicator color={COLORS.white} size="small" />
-            ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Link para recuperação de senha */}
-          <TouchableOpacity
-            style={styles.forgotPasswordButton}
-            onPress={handleRecuperarSenha}
-            disabled={loading}
-          >
-            <Text style={styles.forgotPasswordText}>Esqueci a minha senha</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Informação */}
-        <View style={styles.footer}>
-          <Text style={styles.info}>
-            Acesso exclusivo para estudantes do INSUTEC
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
+        {/* Rodapé */}
+        <View style={styles.footer}>
+          <Text style={styles.info}>Acesso exclusivo para INSUTEC</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }

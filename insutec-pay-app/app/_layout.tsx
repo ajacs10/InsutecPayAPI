@@ -1,153 +1,166 @@
 // app/_layout.tsx
-import React, { useEffect, useCallback } from 'react';
-import { Stack, router, usePathname, useFocusEffect } from 'expo-router';
-import { useFonts } from 'expo-font';
+import React, { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Font from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { AuthProvider, useAuth } from '../components/AuthContext';
 import { FinanceProvider } from '../components/FinanceContext';
-import { ThemeProvider, useTheme } from './telas/ThemeContext/ThemeContext';
-import CustomSplashScreen from './SplashScreen';
-import { Ionicons } from '@expo/vector-icons';
+import { ThemeProvider } from './telas/ThemeContext/ThemeContext';
 
 const COLORS = {
-  primary: '#39FF14',
-  lightBackground: '#F0F2F5',
-  darkBackground: '#0F0F0F',
-  textDark: '#1C1C1C',
-  textLight: '#E0E0E0',
+  primary: '#0b5394',
+  darkBackground: '#1F1F1F',
+  textLight: '#E0E0E0',
 };
 
-const DEFAULT_COLORS = {
-  primary: '#0b5394',
-  lightBackground: '#f8f9fa',
-  darkBackground: '#1F1F1F',
-  textDark: '#333',
-  textLight: '#E0E0E0',
-};
-
-const getColors = () => ({
-  primary: COLORS?.primary || DEFAULT_COLORS.primary,
-  lightBackground: COLORS?.lightBackground || DEFAULT_COLORS.lightBackground,
-  darkBackground: COLORS?.darkBackground || DEFAULT_COLORS.darkBackground,
-  textDark: COLORS?.textDark || DEFAULT_COLORS.textDark,
-  textLight: COLORS?.textLight || DEFAULT_COLORS.textLight,
-});
-
+// === COMPONENTE DE CARREGAMENTO DE FONTES ===
 function FontLoader({ children }: { children: React.ReactNode }) {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...Ionicons.font,
-  });
+  const [loaded, setLoaded] = React.useState(false);
 
-  const { darkBackground, primary, textLight } = getColors();
+  useEffect(() => {
+    Font.loadAsync({
+      SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'), 
+      ...Ionicons.font,
+    })
+      .then(() => setLoaded(true))
+      .catch((err) => {
+        console.warn('Erro ao carregar fontes:', err);
+        setLoaded(true); 
+      });
+  }, []);
 
-  if (!loaded && !error) {
-    return (
-      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={primary} />
-        <Text style={{ color: textLight, marginTop: 10 }}>Carregando...</Text>
-      </View>
-    );
-  }
+  if (!loaded) {
+    return (
+      <View style={{
+        flex: 1,
+        backgroundColor: COLORS.darkBackground,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.textLight, marginTop: 10, fontSize: 16 }}>
+          Carregando fontes...
+        </Text>
+      </View>
+    );
+  }
 
-  if (error) {
-    return (
-      <View style={{ flex: 1, backgroundColor: darkBackground, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: textLight }}>Erro ao carregar fontes.</Text>
-      </View>
-    );
-  }
-
-  return <>{children}</>;
+  return <>{children}</>;
 }
 
-function AppContent() {
-  const { isDarkMode } = useTheme();
-  const { isLoading, aluno } = useAuth();
-  const pathname = usePathname();
-  const { lightBackground, darkBackground } = getColors();
-  const stackBgColor = isDarkMode ? darkBackground : lightBackground;
+// === COMPONENTE DE REDIRECIONAMENTO AUTOMÁTICO (Lógica de Permissões Centralizada) ===
+function RedirectHandler() {
+  const { aluno, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
 
-  const PUBLIC_ROUTES = [
-    '/telas/login/LoginScreen',
-    '/SplashScreen',
-    '/telas/cadastro/CadastroScreen',
-    '/telas/recuperacao/RecuperarEmailScreen',
-  ];
+  useEffect(() => {
+    if (loading) return;
 
-  const checkAccess = useCallback(() => {
-    if (isLoading) return;
+    // Rotas públicas baseadas nos teus nomes de ficheiro
+    const isPublicRoute = segments[0] === 'telas' && 
+                         (segments[1] === 'login' || 
+                          segments[1] === 'recuperacao' || 
+                          segments[1] === 'cadastro' || 
+                          segments[1] === 'termos');
+    
+    const isAdminRoute = segments[0] === 'telas' && segments[1] === 'admin';
 
-    const isAuthenticated = !!aluno?.nr_estudante;
-    const isPublicRoute = PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route));
-    const isIndexRoute = pathname === '/';
+    // 🛑 CORREÇÃO: Usar os nomes de rotas curtas definidos no Stack.Screen
+    const homeAluno = '/telas/home/home';
+    const homeAdmin = '/telas/admin/dashboard';
+    // Nota: Usamos o nome do ficheiro 'login.tsx', que é a rota preferencial de login
+    const loginRoute = '/telas/login/login'; 
 
-    if (!isAuthenticated && !isPublicRoute && !isIndexRoute) {
-      router.replace('/telas/login/LoginScreen');
-    } else if (isAuthenticated && (isPublicRoute || isIndexRoute)) {
-      router.replace('/telas/home/HomeScreen');
-    }
-  }, [isLoading, aluno, pathname]);
+    if (!aluno) {
+      if (!isPublicRoute) {
+          router.replace(loginRoute);
+      }
+      return;
+    } 
 
-  // Use useFocusEffect para evitar navegação antes do mount
-  useFocusEffect(
-    useCallback(() => {
-      checkAccess();
-    }, [checkAccess])
-  );
+    if (aluno) {
+        if (isPublicRoute) {
+            const destino = aluno.tipo_usuario === 'ADMIN' ? homeAdmin : homeAluno;
+            router.replace(destino);
+            return;
+        }
 
-  if (isLoading) {
-    return <CustomSplashScreen />;
-  }
+        if (isAdminRoute && aluno.tipo_usuario !== 'ADMIN') {
+            console.warn('[AUTH] Acesso não autorizado à rota admin. Redirecionando.');
+            router.replace(homeAluno);
+            return;
+        }
+    }
+    
+  }, [aluno, loading, segments, router]);
 
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: stackBgColor },
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="SplashScreen" />
-      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="telas/login/LoginScreen" />
-      <Stack.Screen name="telas/cadastro/CadastroScreen" />
-      <Stack.Screen name="telas/recuperacao/RecuperarEmailScreen" />
-      <Stack.Screen name="telas/home/HomeScreen" />
-      <Stack.Screen name="telas/servicos/Propina" />
-      <Stack.Screen name="telas/servicos/Reconfirmacaomatricula" />
-      <Stack.Screen name="telas/servicos/FolhadeProva" />
-      <Stack.Screen name="telas/servicos/DeclaracaoNota" />
-      <Stack.Screen name="telas/servicos/DeclaracaoSemNota" />
-      <Stack.Screen name="telas/ServicoPagamento/ServicoPagamentoScreen" />
-      <Stack.Screen name="telas/ServicoPagamento/DetalhesPagamentoScreen" />
-      <Stack.Screen name="telas/dividas/DividasScreen" />
-      <Stack.Screen name="telas/historico/HistoricoScreen" />
-      <Stack.Screen name="telas/financeiro/CarteiraScreen" />
-      <Stack.Screen name="telas/financeiro/RecibosScreen" />
-      <Stack.Screen name="telas/comprovativo/ComprovativoScreen" />
-      <Stack.Screen name="telas/perfil/PerfilScreen" />
-      <Stack.Screen name="telas/notificacoes/NotificacoesScreen" />
-      <Stack.Screen name="telas/verAjuda/verAjudaScreen" />
-      <Stack.Screen name="telas/termos/TermosScreen" />
-      <Stack.Screen name="telas/termos/SobreScreen" />
-      <Stack.Screen name="telas/transacao/[id]" />
-      <Stack.Screen name="telas/Success/SuccessScreen" />
-      <Stack.Screen name="+not-found" />
-    </Stack>
-  );
+  return null;
 }
 
+// === LAYOUT PRINCIPAL ===
 export default function RootLayout() {
-  return (
-    <FontLoader>
-      <AuthProvider>
-        <ThemeProvider>
-          <FinanceProvider>
-            <AppContent />
-          </FinanceProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </FontLoader>
-  );
+  return (
+    <FontLoader>
+      <AuthProvider>
+        <ThemeProvider>
+          <FinanceProvider>
+            <RedirectHandler />
+            <Stack screenOptions={{ headerShown: false }}>
+              
+              {/* TELA INICIAL */}
+              <Stack.Screen name="index" />
+
+              {/* TELAS PÚBLICAS - Mapeado EXATAMENTE com os teus ficheiros */}
+              {/* 🛑 Duas telas de Login: 'login' e 'LoginScreen'. Incluí ambas. */}
+              <Stack.Screen name="telas/login/login" />
+              <Stack.Screen name="telas/login/LoginScreen" />
+              <Stack.Screen name="telas/recuperacao/RecuperarEmail" />
+              <Stack.Screen name="telas/cadastro/Cadastro" />
+
+              {/* TELAS PROTEGIDAS (ALUNO) - Mapeado EXATAMENTE */}
+              <Stack.Screen name="telas/home/home" />
+              <Stack.Screen name="telas/perfil/perfil" />
+              <Stack.Screen name="telas/pagamento/DescricaoPagamento" />
+              <Stack.Screen name="telas/historico/historico" />
+              <Stack.Screen name="telas/notificacoes/notificacoes" />
+              <Stack.Screen name="telas/financeiro/carteira" />
+              <Stack.Screen name="telas/financeiro/recibos" />
+              <Stack.Screen name="telas/dividas/dividas" />
+              <Stack.Screen name="telas/comprovativo/comprovativo" />
+
+              {/* TELAS DE SERVIÇOS - Mapeado EXATAMENTE */}
+              <Stack.Screen name="telas/servicos/DeclaracaoNota" />
+              <Stack.Screen name="telas/servicos/DeclaracaoSemNota" />
+              <Stack.Screen name="telas/servicos/FolhadeProva" />
+              <Stack.Screen name="telas/servicos/Propina" />
+              <Stack.Screen name="telas/servicos/Reconfirmacaomatricula" />
+              
+              {/* TELAS DE PAGAMENTO/SUCESSO - Mapeado EXATAMENTE */}
+              <Stack.Screen name="telas/ServicoPagamento/ServicoPagamento" />
+              <Stack.Screen name="telas/ServicoPagamento/DetalhesPagamento" />
+              <Stack.Screen name="telas/Success/Success" />
+              
+              {/* TELAS DIVERSAS - Mapeado EXATAMENTE */}
+              <Stack.Screen name="telas/transacao/[id]" />
+              <Stack.Screen name="telas/termos/Sobre" />
+              <Stack.Screen name="telas/termos/Termos" />
+              <Stack.Screen name="telas/verAjuda/verAjuda" />
+
+              {/* TELAS ADMIN - Mapeado EXATAMENTE */}
+              <Stack.Screen name="telas/admin/dashboard" />
+              <Stack.Screen name="telas/admin/emolumentos" />
+              <Stack.Screen name="telas/admin/Alunos" />
+
+              {/* TELAS ESPECIAIS */}
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="+not-found" />
+              
+            </Stack>
+          </FinanceProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </FontLoader>
+  );
 }

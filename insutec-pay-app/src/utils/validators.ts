@@ -1,45 +1,29 @@
 // src/utils/validators.ts
 export const ValidationRules = {
-  numeroEstudante: (value: string): { isValid: boolean; message: string } => {
-    if (!value.trim()) {
-      return { isValid: false, message: 'O número de estudante é obrigatório' };
+  identificador: (value: string): { isValid: boolean; message: string } => {
+    if (!value) {
+      return { isValid: false, message: 'Campo obrigatório' };
     }
-
-    const cleanValue = value.replace(/\s/g, '');
-    
-    if (!/^\d+$/.test(cleanValue)) {
-      return { isValid: false, message: 'Apenas números são permitidos no número de estudante' };
+    const isEmail = value.includes('@');
+    if (isEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        return { isValid: false, message: 'Email inválido' };
+      }
+    } else {
+      if (!/^\d{6}$/.test(value)) {
+        return { isValid: false, message: 'Deve ter exatamente 6 dígitos' };
+      }
     }
-
-    if (cleanValue.length !== 6) {
-      return { isValid: false, message: 'O número de estudante deve ter exatamente 6 dígitos' };
-    }
-
     return { isValid: true, message: '' };
   },
 
   senha: (value: string): { isValid: boolean; message: string } => {
-    if (!value.trim()) {
+    if (!value) {
       return { isValid: false, message: 'A senha é obrigatória' };
     }
-
-    if (/\s/.test(value)) {
-      return { isValid: false, message: 'A senha não pode conter espaços' };
-    }
-
     if (value.length < 6) {
-      return { isValid: false, message: 'A senha deve ter pelo menos 6 caracteres' };
+      return { isValid: false, message: 'Mínimo 6 caracteres' };
     }
-
     return { isValid: true, message: '' };
   },
-};
-
-export const formatNumeroEstudante = (value: string): string => {
-  const numbers = value.replace(/\D/g, '');
-  return numbers.slice(0, 6);
-};
-
-export const cleanSenha = (value: string): string => {
-  return value.replace(/\s/g, '');
 };

@@ -19,11 +19,12 @@ interface AuthContextProps {
 }
 
 interface RegisterData {
-  nome: string;
+  id: string;
+  usuario_id: number;  // ← OBRIGATÓRIO
   nr_estudante: string;
-  email: string;
-  password: string;
-  ano?: number;
+  nome: string;
+  curso: string;
+  ano_academico: number;
   programa?: string;
   telefone?: string;
 }
@@ -225,3 +226,8 @@ export const useAuth = (): AuthContextProps => {
   }
   return context;
 };
+
+export interface Divida { /* ... */ }
+export interface PagamentoTransacao { /* ... */ }
+export interface Notificacao { /* ... */ }
+export interface Servico { /* ... */ }

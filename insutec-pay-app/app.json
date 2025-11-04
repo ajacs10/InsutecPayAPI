@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "insutecpay",
-    "slug": "insutecpay",
+    "slug": "",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/logo2.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -13,12 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
-      "**/*"
+      "**/*",
+      "assets/fonts/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.insutecpay",
-      "permissions": []
+      "bundleIdentifier": "com.yourcompany.insutecpay"
     },
     "android": {
       "adaptiveIcon": {
@@ -47,7 +47,8 @@
             "android.permission.READ_EXTERNAL_STORAGE"
           ]
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

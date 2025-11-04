@@ -1,4 +1,4 @@
-// app/telas/financeiro/PropinaScreen.tsx
+// app/servicos/PropinaScreen.tsx
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
